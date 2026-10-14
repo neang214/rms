@@ -17,6 +17,7 @@ import supplierRoutes      from "./modules/suppliers/supplier.route.js";
 import analyticsRoutes     from "./modules/analytics/analytics.route.js";
 import unitRouter          from "./modules/unit/unit.route.js";
 import khqrRoutes          from "./modules/payments/khqr.route.js";
+import guestSessionRoutes  from "./modules/guestSession/guestSession.route.js"; // <-- ADD THIS
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use(cors({
 
 app.use("/api/auth",            authRoutes);
 app.use("/api/users",           userRoutes);
+app.use("/api/guest-sessions",  guestSessionRoutes);
 app.use("/api/menu-categories", menuCategoryRoutes);
 app.use("/api/menu-items",      menuItemRoutes);
 app.use("/api/tables",          tableRoutes);

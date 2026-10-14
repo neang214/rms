@@ -1,12 +1,19 @@
 import express from "express";
-import { authenticate } from "../../middleware/authenticate.js";
+import { authenticate, authenticateOptional } from "../../middleware/authenticate.js";
 import { authorize } from "../../middleware/authorize.js";
+import { requireGuestSessionIfGuestChannel } from "../../middleware/guestSession.js";
 import { guestOrderLimiter } from "../../middleware/rateLimiter.js";
 import * as orderItemController from "./orderItem.controller.js";
 
 const router = express.Router();
 
-router.post("/", guestOrderLimiter, orderItemController.addItem);
+router.post(
+  "/",
+  guestOrderLimiter,
+  authenticateOptional,
+  requireGuestSessionIfGuestChannel,
+  orderItemController.addItem,
+);
 
 router.get(
   "/queue/kitchen",
@@ -23,7 +30,7 @@ router.get(
 router.get(
   "/:orderId",
   authenticate,
-  authorize("cashier"),
+  authorize("cashier", "admin", "server"),
   orderItemController.getItemsByOrder,
 );
 router.patch(
@@ -35,13 +42,13 @@ router.patch(
 router.patch(
   "/:id/note",
   authenticate,
-  authorize("cashier", "admin"),
+  authorize("cashier", "admin", "server"),
   orderItemController.updateItemNote,
 );
 router.delete(
   "/:id",
   authenticate,
-  authorize("cashier", "admin"),
+  authorize("cashier", "admin", "server"),
   orderItemController.deleteItem,
 );
 

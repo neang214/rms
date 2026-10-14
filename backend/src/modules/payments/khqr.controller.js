@@ -99,12 +99,14 @@ export const checkKHQR = async (req, res) => {
   if (!token)
     return res.json({ paid: false, reason: "BAKONG_TOKEN not configured — use manual confirm" });
 
+  const parsedOrderId = parseInt(order_id);
+
   try {
     const bakongRes = await checkBakongMD5(md5, token);
     if (!bakongRes.paid) return res.json({ paid: false });
 
     const order = await prisma.order.findUnique({
-      where: { order_id: parseInt(order_id) },
+      where: { order_id: parsedOrderId },
       include: {
         order_items: true,
         payments: { where: { status: "Completed" } },
@@ -125,27 +127,37 @@ export const checkKHQR = async (req, res) => {
 
     const cashier = await prisma.user.findFirst({ where: { role: { in: ["cashier", "admin"] } } });
 
-    await prisma.$transaction(async (tx) => {
-      await tx.payment.create({
+    const payment = await prisma.$transaction(async (tx) => {
+      const createdPayment = await tx.payment.create({
         data: {
-          order_id: parseInt(order_id),
+          order_id: parsedOrderId,
           method_id: khqrMethod.method_id,
-          user_id: cashier?.user_id || 1,
+          user_id: req.user?.userId || cashier?.user_id || 1,
           amount: totalAmount,
           status: "Completed",
         },
       });
-      await tx.order.update({ where: { order_id: parseInt(order_id) }, data: { status: "Paid" } });
+      await tx.order.update({ where: { order_id: parsedOrderId }, data: { status: "Paid" } });
       if (order.table_id)
         await tx.table.update({ where: { table_id: order.table_id }, data: { is_available: true } });
+
+      return createdPayment;
     });
 
     const io = getIO();
-    io.to("role:cashier").to("role:admin").emit("payment:completed", { order_id: parseInt(order_id) });
-    io.to("role:cashier").to("role:admin").emit("order:status_changed", { order_id: parseInt(order_id), status: "Paid" });
-    io.to(`table:${order.table_id}`).emit("order:status_changed", { order_id: parseInt(order_id), status: "Paid" });
+    io.to("role:cashier").to("role:admin").to("role:server")
+      .emit("payment:completed", { order_id: parsedOrderId, payment });
+    io.to("role:cashier").to("role:admin").to("role:server")
+      .emit("order:status_changed", { order_id: parsedOrderId, table_id: order.table_id, status: "Paid" });
+    io.to(`table:${order.table_id}`)
+      .emit("order:status_changed", { order_id: parsedOrderId, table_id: order.table_id, status: "Paid" });
 
-    res.json({ paid: true, order_id: parseInt(order_id) });
+    if (order.table_id) {
+      io.to("role:admin").to("role:cashier").to("role:server")
+        .emit("table:updated", { table_id: order.table_id, is_available: true });
+    }
+
+    res.json({ paid: true, order_id: parsedOrderId });
   } catch (error) {
     console.error("[KHQR] checkKHQR error:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -180,5 +192,3 @@ async function checkBakongMD5(md5, token) {
     req.end();
   });
 }
-
-//KHQR_BAKONG_ID_USD

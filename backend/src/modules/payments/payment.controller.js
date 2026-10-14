@@ -1,4 +1,5 @@
 import prisma from "../../utils/db.js";
+import { getIO } from "../../sockets/index.js";
 
 export const getAllPayments = async (req, res) => {
     try {
@@ -68,7 +69,6 @@ export const getPaymentByOrder = async (req, res) => {
 
 export const createPayment = async (req, res) => {
     const { order_id, method_id, method_name } = req.body;
-    
     const user_id = req.user.userId;
 
     if (!order_id || (!method_id && !method_name))
@@ -76,35 +76,24 @@ export const createPayment = async (req, res) => {
             .status(400)
             .json({ message: "order_id and a payment method are required" });
 
+    const parsedOrderId = parseInt(order_id);
+
     try {
         const order = await prisma.order.findUnique({
-            where: { order_id: parseInt(order_id) },
+            where: { order_id: parsedOrderId },
             include: {
                 order_items: true,
-                
                 payments: { where: { status: "Completed" } },
             },
         });
 
         if (!order) return res.status(404).json({ message: "Order not found" });
 
-        
-        
-        if (order.payments.length > 0)
+        if (order.payments.length > 0 || order.status === "Paid")
             return res
                 .status(409)
                 .json({ message: "This order has already been paid" });
 
-        
-        
-        if (order.status === "Paid")
-            return res
-                .status(409)
-                .json({ message: "This order has already been paid" });
-
-        
-        
-        
         if (order.confirmed === false)
             return res
                 .status(400)
@@ -114,7 +103,6 @@ export const createPayment = async (req, res) => {
             return sum + item.quantity * Number(item.unit_price);
         }, 0);
 
-        
         const result = await prisma.$transaction(async (tx) => {
             let resolvedMethodId = method_id ? parseInt(method_id) : null;
             if (method_name) {
@@ -125,7 +113,7 @@ export const createPayment = async (req, res) => {
 
             const payment = await tx.payment.create({
                 data: {
-                    order: { connect: { order_id: parseInt(order_id) } },
+                    order: { connect: { order_id: parsedOrderId } },
                     method: { connect: { method_id: resolvedMethodId } },
                     user: { connect: { user_id: user_id } },
                     amount: totalAmount,
@@ -133,13 +121,11 @@ export const createPayment = async (req, res) => {
                 },
             });
 
-            
             await tx.order.update({
-                where: { order_id: parseInt(order_id) },
+                where: { order_id: parsedOrderId },
                 data: { status: "Paid" },
             });
 
-            
             if (order.table_id) {
                 await tx.table.update({
                     where: { table_id: order.table_id },
@@ -149,6 +135,20 @@ export const createPayment = async (req, res) => {
 
             return payment;
         });
+
+        // Emit real-time payment, order status, and table availability updates
+        const io = getIO();
+        io.to("role:cashier").to("role:admin").to("role:server")
+            .emit("payment:completed", { order_id: parsedOrderId, payment: result });
+        io.to("role:cashier").to("role:admin").to("role:server")
+            .emit("order:status_changed", { order_id: parsedOrderId, table_id: order.table_id, status: "Paid" });
+        io.to(`table:${order.table_id}`)
+            .emit("order:status_changed", { order_id: parsedOrderId, table_id: order.table_id, status: "Paid" });
+
+        if (order.table_id) {
+            io.to("role:admin").to("role:cashier").to("role:server")
+                .emit("table:updated", { table_id: order.table_id, is_available: true });
+        }
 
         res.status(201).json(result);
     } catch (error) {

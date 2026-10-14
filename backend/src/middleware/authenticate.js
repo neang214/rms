@@ -1,12 +1,12 @@
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
 
 export const authenticate = (req, res, next) => {
   const token = req.cookies.token;
- 
+
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });
   }
- 
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
@@ -14,4 +14,18 @@ export const authenticate = (req, res, next) => {
   } catch {
     return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
   }
+};
+
+// Attaches req.user if a valid JWT cookie is present, but continues
+// without error if missing — used on routes shared by staff and guests.
+export const authenticateOptional = (req, res, next) => {
+  const token = req.cookies?.token;
+  if (!token) return next();
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    // Ignore invalid/expired token on optional check; downstream guard handles it
+  }
+  next();
 };

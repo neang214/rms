@@ -1,6 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { authenticate } from "../../middleware/authenticate.js";
+import { authenticate, authenticateOptional } from "../../middleware/authenticate.js";
 import { authorize } from "../../middleware/authorize.js";
 import { requireGuestSession, requireGuestSessionIfGuestChannel } from "../../middleware/guestSession.js";
 import * as orderController from "./order.controller.js";
@@ -15,7 +15,13 @@ const guestOrderLimit = rateLimit({
   legacyHeaders: false,
 });
 
-router.post("/", guestOrderLimit, requireGuestSessionIfGuestChannel, orderController.createOrder);
+router.post(
+  "/",
+  guestOrderLimit,
+  authenticateOptional,
+  requireGuestSessionIfGuestChannel,
+  orderController.createOrder,
+);
 
 router.patch("/:id/details", guestOrderLimit, requireGuestSession, orderController.updateOrderDetails);
 router.get("/session/active", requireGuestSession, orderController.getActiveOrderBySession);
@@ -31,7 +37,7 @@ router.get(
 router.get(
   "/unconfirmed",
   authenticate,
-  authorize("cashier", "admin"),
+  authorize("cashier", "admin", "server"),
   orderController.getUnconfirmedOrders,
 );
 
@@ -44,25 +50,25 @@ router.get(
 router.get(
   "/:id",
   authenticate,
-  authorize("cashier", "admin"),
+  authorize("cashier", "admin", "server"),
   orderController.getOrderById,
 );
 router.patch(
   "/:id/status",
   authenticate,
-  authorize("cashier"),
+  authorize("cashier", "server"),
   orderController.updateOrderStatus,
 );
 router.patch(
   "/:id/confirm",
   authenticate,
-  authorize("cashier", "admin"),
+  authorize("cashier", "admin", "server"),
   orderController.confirmOrder,
 );
 router.delete(
   "/:id",
   authenticate,
-  authorize("cashier", "admin"),
+  authorize("cashier", "admin", "server"),
   orderController.deleteOrder,
 );
 

@@ -21,17 +21,27 @@ async function attach(req, res) {
   return true;
 }
 
-// For routes only guests ever call (updateOrderDetails, the session-based
-// active-order lookup) — a valid session is always required.
 export async function requireGuestSession(req, res, next) {
   if (await attach(req, res)) next();
 }
 
-// For routes shared with staff (createOrder, addItem) — staff requests
-// pass straight through unchanged; only requests claiming to be a guest
-// need a verified session. req.guestSession is left undefined for staff
-// calls, same as before this middleware existed.
 export async function requireGuestSessionIfGuestChannel(req, res, next) {
-  if (req.body?.channel !== "guest") return next();
-  if (await attach(req, res)) next();
+  if (req.body?.channel === "guest") {
+    if (await attach(req, res)) next();
+    return;
+  }
+
+  // Non-guest channel requests must come from authenticated staff
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized: Staff login or guest session required" });
+  }
+
+  const allowedStaffRoles = ["admin", "cashier", "server"];
+  if (!allowedStaffRoles.includes(req.user.role)) {
+    return res.status(403).json({
+      message: `Access denied. Required role: ${allowedStaffRoles.join(" or ")}`,
+    });
+  }
+
+  next();
 }
