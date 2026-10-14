@@ -28,6 +28,16 @@ export const useUnitStore = create((set, get) => ({
     }
   },
 
+  updateUnit: async (id, data) => {
+    try {
+      const res = await api.put(`/units/${id}`, data);
+      set({ units: get().units.map(u => u.unit_id === id ? { ...u, ...res.data } : u) });
+      return res.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   deleteUnit: async (id) => {
     try {
       await api.delete(`/units/${id}`);

@@ -19,16 +19,13 @@ export default function GuestOrderStatus() {
   const token = params.get("t")
 
   const { getTableByToken } = useTableStore()
-  const { getActiveOrderByTable } = useOrderStore()
+  const { getActiveOrderBySession } = useOrderStore()
 
   const [table, setTable] = useState(null)
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tableError, setTableError] = useState(false)
 
-  
-  
-  
   useSocketTable(table?.table_id)
   useGuestOrderSound()
 
@@ -42,7 +39,7 @@ export default function GuestOrderStatus() {
   const refetchOrder = async () => {
     if (!table?.table_id) return
     try {
-      const active = await getActiveOrderByTable(table.table_id)
+      const active = await getActiveOrderBySession()
       setOrder(active)
     } catch (err) {
       console.error(err)
@@ -58,7 +55,7 @@ export default function GuestOrderStatus() {
       .then(async (t) => {
         setTable(t)
         localStorage.setItem("zoom_last_table_token", token)
-        const active = await getActiveOrderByTable(t.table_id)
+        const active = await getActiveOrderBySession()
         setOrder(active)
       })
       .catch(() => setTableError(true))

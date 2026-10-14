@@ -7,11 +7,11 @@ export const useDashboardStore = create((set) => ({
     monthlyRevenue: null,
 
     topSellingItems: [],
-    
+    peakHours: [],
+
     isLoading: false,
     error: null,
 
-    
     fetchDailyRevenue: async () => {
         set({ isLoading: true, error: null });
         try {
@@ -24,7 +24,6 @@ export const useDashboardStore = create((set) => ({
         }
     },
 
-    
     fetchWeeklyRevenue: async () => {
         set({ isLoading: true, error: null });
         try {
@@ -37,7 +36,6 @@ export const useDashboardStore = create((set) => ({
         }
     },
 
-    
     fetchMonthlyRevenue: async () => {
         set({ isLoading: true, error: null });
         try {
@@ -60,5 +58,17 @@ export const useDashboardStore = create((set) => ({
             set({ error: error.message || "Failed to fetch top selling items", isLoading: false });
             throw error;
         }
-    }
+    },
+
+    fetchPeakHours: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const res = await clientApi.get('/analytics/orders/peak-hours');
+            set({ peakHours: res.data, isLoading: false });
+            return res.data;
+        } catch (error) {
+            set({ error: error.message || "Failed to fetch peak hours", isLoading: false });
+            throw error;
+        }
+    },
 }));

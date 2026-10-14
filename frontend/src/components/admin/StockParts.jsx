@@ -1,11 +1,12 @@
-import { useRef } from "react"
-import { Search, Plus, Eye, Pencil, Trash2, Package, AlertTriangle, Layers, DollarSign, ImagePlus, X, ChefHat, Coffee, Store } from "lucide-react"
+import { useRef, useState } from "react"
+import { Search, Plus, Eye, Pencil, Trash2, Package, AlertTriangle, Layers, DollarSign, ImagePlus, X, ChefHat, Coffee, Store, Truck, Check } from "lucide-react"
 import {
   Button, Badge, Input, Label, Card,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui"
+import { cn } from "@/lib/utils"
 
 export function stockStatus(item) {
   if (item.min_level == null) return "InStock"
@@ -36,7 +37,6 @@ export function stockImageUrl(item) {
   return `${API_ORIGIN}${item.image_url}`
 }
 
-/* Small square placeholder used when a stock item has no photo. */
 function NoPhoto({ size = 64 }) {
   return (
     <div className="rounded-lg bg-[var(--color-primary-muted)] flex items-center justify-center shrink-0"
@@ -76,14 +76,14 @@ export function StockImagePicker({ preview, onSelect, onClear }) {
   )
 }
 
-export function StockStats({ stockItems, lowStockCount, unitNames }) {
+export function StockStats({ stockItems, lowStockCount, unitNames, stockOrdersCount = 0 }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {[
         { label: "Total Item", value: stockItems.length, sub: "In inventory", icon: Package, color: "text-[var(--color-primary)]" },
         { label: "Low Stock", value: lowStockCount, sub: "Need restocking", icon: AlertTriangle, color: "text-[var(--color-warning)]" },
         { label: "Units", value: unitNames.length, sub: "Unit types", icon: Layers, color: "text-[var(--color-info)]" },
-        { label: "Total Items Tracked", value: stockItems.length, sub: "Across all units", icon: DollarSign, color: "text-[var(--color-plum)]" },
+        { label: "Purchase Orders", value: stockOrdersCount, sub: "Supplier orders", icon: Truck, color: "text-[var(--color-plum)]" },
       ].map(({ label, value, sub, icon: Icon, color }) => (
         <Card key={label} className="p-5">
           <div className="flex items-start justify-between mb-3">
@@ -142,7 +142,8 @@ export function StockFormFields({ form, setForm, units, imagePreview, onImageSel
 }
 
 export function StockTable({
-  items, isLoading, search, setSearch, catFilter, setCatFilter, typeFilter, setTypeFilter, unitNames,
+  items, isLoading, search, setSearch, catFilter, setCatFilter, typeFilter, setTypeFilter,
+  lowOnly, setLowOnly, lowStockCount = 0, unitNames,
   onAddUnit, onAddQty, onView, onEdit, onDelete,
 }) {
   return (
@@ -152,7 +153,22 @@ export function StockTable({
           <div className="font-semibold text-[var(--color-primary)]">Inventory List</div>
           <div className="text-xs text-[var(--color-muted)] mt-0.5">Manage all stock items</div>
         </div>
-        <Button variant="dark" size="sm" onClick={onAddUnit} className="gap-1.5"><Plus size={13} /> Add New Unit</Button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setLowOnly(!lowOnly)}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all",
+              lowOnly
+                ? "bg-[var(--color-danger)] text-white border-[var(--color-danger)]"
+                : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-warning)]"
+            )}
+          >
+            <AlertTriangle size={13} />
+            Low Stock Only ({lowStockCount})
+          </button>
+          <Button variant="dark" size="sm" onClick={onAddUnit} className="gap-1.5"><Layers size={13} /> Manage Units</Button>
+        </div>
       </div>
       <div className="p-4 flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
@@ -232,6 +248,163 @@ export function StockTable({
         )}
       </div>
     </Card>
+  )
+}
+
+export function StockOrdersCard({ stockOrders = [], isLoading, onNewOrder, onUpdateStatus, updatingId }) {
+  const statusBadge = {
+    Pending: "outline",
+    Ordered: "warning",
+    Received: "success",
+  }
+
+  return (
+    <Card>
+      <div className="p-5 pb-4 border-b border-[var(--color-border)] flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <div className="font-semibold text-[var(--color-primary)]">Purchase Orders (Restocking)</div>
+          <div className="text-xs text-[var(--color-muted)] mt-0.5">
+            Track supplier orders — marking an order as "Received" automatically adds its quantity to stock
+          </div>
+        </div>
+        <Button size="sm" onClick={onNewOrder} className="gap-1.5">
+          <Plus size={14} /> New Purchase Order
+        </Button>
+      </div>
+
+      <div className="px-2 pb-2">
+        {isLoading ? (
+          <div className="text-center py-8 text-sm text-[var(--color-muted)]">Loading purchase orders...</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent border-none">
+                <TableHead>PO #</TableHead>
+                <TableHead>Invoice</TableHead>
+                <TableHead>Stock Item</TableHead>
+                <TableHead>Supplier</TableHead>
+                <TableHead>Quantity</TableHead>
+                <TableHead>Placed By</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {stockOrders.map(po => (
+                <TableRow key={po.stock_order_id}>
+                  <TableCell className="font-semibold">PO-{String(po.stock_order_id).padStart(3, "0")}</TableCell>
+                  <TableCell className="text-[var(--color-muted)]">{po.invoice || "—"}</TableCell>
+                  <TableCell className="font-medium">{po.stock?.item_name || `#${po.stock_id}`}</TableCell>
+                  <TableCell className="text-[var(--color-muted)]">{po.supplier?.supplier_name || `#${po.supplier_id}`}</TableCell>
+                  <TableCell className="font-semibold">{Number(po.quantity)}</TableCell>
+                  <TableCell className="text-[var(--color-muted)]">{po.user?.username || "—"}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusBadge[po.status] || "outline"}>{po.status}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {po.status === "Received" ? (
+                      <span className="text-xs text-[var(--color-primary)] font-medium inline-flex items-center gap-1">
+                        <Check size={13} /> Stock Added
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        {po.status === "Pending" && (
+                          <button
+                            disabled={updatingId === po.stock_order_id}
+                            onClick={() => onUpdateStatus(po.stock_order_id, "Ordered")}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors disabled:opacity-50"
+                          >
+                            Mark Ordered
+                          </button>
+                        )}
+                        <button
+                          disabled={updatingId === po.stock_order_id}
+                          onClick={() => onUpdateStatus(po.stock_order_id, "Received")}
+                          className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] transition-colors disabled:opacity-50"
+                        >
+                          Receive Stock
+                        </button>
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {stockOrders.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-sm text-[var(--color-muted)] py-8">
+                    No purchase orders placed yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+export function StockOrderDialog({ open, onClose, form, setForm, stockItems = [], suppliers = [], errorMsg, saving, onSubmit }) {
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>New Purchase Order</DialogTitle>
+          <DialogDescription>Order inventory from a supplier. Stock will increment when marked as Received.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          <div className="space-y-1.5">
+            <Label>Stock Item</Label>
+            <Select value={form.stock_id ? String(form.stock_id) : ""} onValueChange={v => setForm(f => ({ ...f, stock_id: parseInt(v) }))}>
+              <SelectTrigger><SelectValue placeholder="Select stock item..." /></SelectTrigger>
+              <SelectContent>
+                {stockItems.map(s => (
+                  <SelectItem key={s.stock_id} value={String(s.stock_id)}>
+                    {s.item_name} ({Number(s.quantity)} {s.unit?.unit_name})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Supplier</Label>
+            <Select value={form.supplier_id ? String(form.supplier_id) : ""} onValueChange={v => setForm(f => ({ ...f, supplier_id: parseInt(v) }))}>
+              <SelectTrigger><SelectValue placeholder="Select supplier..." /></SelectTrigger>
+              <SelectContent>
+                {suppliers.map(sup => (
+                  <SelectItem key={sup.supplier_id} value={String(sup.supplier_id)}>
+                    {sup.supplier_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Quantity to Order</Label>
+            <Input
+              type="number"
+              min="1"
+              value={form.quantity}
+              onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
+              placeholder="e.g. 10"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Invoice / Reference <span className="text-[var(--color-muted)] font-normal">(optional)</span></Label>
+            <Input
+              value={form.invoice}
+              onChange={e => setForm(f => ({ ...f, invoice: e.target.value }))}
+              placeholder="e.g. INV-2026-001"
+            />
+          </div>
+        </div>
+        {errorMsg && <div className="text-sm text-[var(--color-danger)] bg-[var(--color-danger-muted)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2 mt-3">{errorMsg}</div>}
+        <div className="flex gap-2 justify-end mt-4">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={onSubmit} disabled={saving}>{saving ? "Saving..." : "Place Order"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -320,18 +493,114 @@ export function AddQtyDialog({ item, addQty, setAddQty, errorMsg, saving, onConf
   )
 }
 
-export function AddUnitDialog({ open, newUnitName, setNewUnitName, errorMsg, saving, onConfirm, onClose }) {
+export function AddUnitDialog({
+  open, newUnitName, setNewUnitName, errorMsg, saving, onConfirm, onClose,
+  units = [], onUpdateUnit, onDeleteUnit,
+}) {
+  const [editingId, setEditingId] = useState(null)
+  const [editValue, setEditValue] = useState("")
+  const [rowBusy, setRowBusy] = useState(false)
+  const [rowError, setRowError] = useState("")
+
+  const handleSaveEdit = async (id) => {
+    if (!editValue.trim()) return
+    setRowBusy(true)
+    setRowError("")
+    try {
+      await onUpdateUnit(id, editValue.trim())
+      setEditingId(null)
+    } catch (err) {
+      setRowError(err?.response?.data?.message || "Failed to update unit.")
+    } finally {
+      setRowBusy(false)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    setRowBusy(true)
+    setRowError("")
+    try {
+      await onDeleteUnit(id)
+    } catch (err) {
+      setRowError(err?.response?.data?.message || "Cannot delete unit in use.")
+    } finally {
+      setRowBusy(false)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Add New Unit</DialogTitle>
+          <DialogTitle>Manage Units</DialogTitle>
+          <DialogDescription>Add, rename, or remove measurement units.</DialogDescription>
         </DialogHeader>
-        <Input value={newUnitName} onChange={e => setNewUnitName(e.target.value)} placeholder="e.g. liter, kg, pcs" className="mt-2" />
+
+        {units.length > 0 && (
+          <div className="max-h-48 overflow-y-auto rounded-xl border border-[var(--color-border)] divide-y divide-[var(--color-border)] mt-1">
+            {units.map(u => (
+              <div key={u.unit_id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                {editingId === u.unit_id ? (
+                  <>
+                    <Input
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      className="h-8 text-xs flex-1"
+                    />
+                    <button
+                      onClick={() => handleSaveEdit(u.unit_id)}
+                      disabled={rowBusy}
+                      className="px-2 py-1 rounded-lg bg-[var(--color-primary)] text-white text-xs font-medium"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      disabled={rowBusy}
+                      className="px-2 py-1 rounded-lg border border-[var(--color-border)] text-xs text-[var(--color-muted)]"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[var(--color-text)] font-medium">{u.unit_name}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => { setEditingId(u.unit_id); setEditValue(u.unit_name); setRowError("") }}
+                        className="p-1 rounded-lg hover:bg-[var(--color-accent-muted)] text-[var(--color-muted)] hover:text-[var(--color-warning)] transition-colors"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(u.unit_id)}
+                        disabled={rowBusy}
+                        className="p-1 rounded-lg hover:bg-[var(--color-danger-muted)] text-[var(--color-muted)] hover:text-[var(--color-danger)] transition-colors"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {rowError && (
+          <div className="text-xs text-[var(--color-danger)] bg-[var(--color-danger-muted)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2 mt-2">
+            {rowError}
+          </div>
+        )}
+
+        <div className="space-y-1.5 mt-2">
+          <Label>Add New Unit</Label>
+          <Input value={newUnitName} onChange={e => setNewUnitName(e.target.value)} placeholder="e.g. liter, kg, pcs" />
+        </div>
         {errorMsg && <div className="text-sm text-[var(--color-danger)] bg-[var(--color-danger-muted)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2 mt-3">{errorMsg}</div>}
         <div className="flex gap-2 justify-end mt-3">
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={onConfirm} disabled={saving}>{saving ? "Saving..." : "OK"}</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Close</Button>
+          <Button onClick={onConfirm} disabled={saving}>{saving ? "Saving..." : "Add Unit"}</Button>
         </div>
       </DialogContent>
     </Dialog>

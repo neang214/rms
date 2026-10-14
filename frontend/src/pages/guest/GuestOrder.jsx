@@ -27,7 +27,7 @@ export default function GuestOrder() {
   const { items, fetchItems } = useMenuItemStore()
   const { categories, fetchCategories } = useMenuCategoryStore()
   const { getTableByToken } = useTableStore()
-  const { createOrder, getActiveOrderByTable, updateOrderDetails } = useOrderStore()
+  const { createOrder, getActiveOrderBySession, updateOrderDetails } = useOrderStore()
   const { addItem } = useOrderItemStore()
 
   const [activeCat, setActiveCat] = useState("All")
@@ -45,8 +45,6 @@ export default function GuestOrder() {
   const [tableError, setTableError] = useState(false)
   const [liveOrderStatus, setLiveOrderStatus] = useState(null)
 
-  // Guest must confirm they're physically at the café before they can see
-  // the menu or order. "checking" -> "ok" | "blocked".
   const [geoStatus, setGeoStatus] = useState("checking")
   const [geoError, setGeoError] = useState(null)
   const [coords, setCoords] = useState(null)
@@ -72,8 +70,6 @@ export default function GuestOrder() {
       })
   }
 
-  
-  
   useSocketTable(table?.table_id)
   useGuestOrderSound()
 
@@ -86,22 +82,14 @@ export default function GuestOrder() {
     fetchItems()
     fetchCategories()
 
-    
-    
-    
     if (token) {
       getTableByToken(token)
         .then(async (t) => {
           setTable(t)
-          
-          
           localStorage.setItem("zoom_last_table_token", token)
 
-          
-          
-          
           try {
-            const existing = await getActiveOrderByTable(t.table_id)
+            const existing = await getActiveOrderBySession()
             if (existing) setLiveOrderStatus(existing.status)
           } catch {}
         })
@@ -114,7 +102,6 @@ export default function GuestOrder() {
 
   useEffect(() => { if (table) checkLocation() }, [table])
 
-  
   if (!token) {
     return <InvalidTable navigate={navigate} message={t("guest.noTable")} />
   }
@@ -128,14 +115,11 @@ export default function GuestOrder() {
   const availableItems = items.filter(i => i.available)
   const filtered = availableItems.filter(i => {
     const matchesCat = activeCat === "All" || i.category_id === activeCat
-    
-    
     const q = search.toLowerCase()
     const matchesSearch = i.item_name?.toLowerCase().includes(q) || i.item_name_km?.toLowerCase().includes(q)
     return matchesCat && matchesSearch
   })
 
-  
   const addToCart = (id) => setCart(c => ({ ...c, [id]: { qty: (c[id]?.qty || 0) + 1, note: c[id]?.note || "" } }))
   const removeFromCart = (id) => setCart(c => {
     const n = { ...c }
@@ -160,24 +144,15 @@ export default function GuestOrder() {
     try {
       let orderId
 
-      // Re-check for an active order right before submitting — if another
-      // guest at the same table already started one, join it instead of
-      // creating a second, conflicting order for the same table.
-      const existing = await getActiveOrderByTable(table.table_id)
+      const existing = await getActiveOrderBySession()
 
       if (existing) {
         orderId = existing.order_id
         setQueueNumber(existing.queue_number ?? null)
-        // This order already existed — createOrder never ran, so send
-        // any party_size/note the guest typed here instead. Only bother
-        // if they actually entered something.
         if (partySize || note) {
           try {
             await updateOrderDetails(orderId, { party_size: partySize || undefined, note: note || undefined })
-          } catch {
-            // non-fatal — the order itself still goes through fine even
-            // if this side-detail update fails
-          }
+          } catch {}
         }
       } else {
         try {
@@ -212,10 +187,6 @@ export default function GuestOrder() {
 
       setSubmitted(true)
       setLiveOrderStatus("Pending")
-      
-      
-      
-      
       setTimeout(() => {
         setSubmitted(false)
         setCart({})

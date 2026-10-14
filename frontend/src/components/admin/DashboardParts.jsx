@@ -1,4 +1,4 @@
-import { TrendingUp, Calendar, DollarSign, Flame } from "lucide-react"
+import { TrendingUp, Calendar, DollarSign, Flame, Clock } from "lucide-react"
 import { Card, Badge, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui"
 
 export function RevenueStats({ dailyRevenue, weeklyRevenue, monthlyRevenue }) {
@@ -71,6 +71,60 @@ export function TopSellingTable({ topSellingItems }) {
             )}
           </TableBody>
         </Table>
+      </div>
+    </Card>
+  )
+}
+
+function formatHourLabel(hourNum) {
+  const h = Number(hourNum)
+  const suffix = h >= 12 ? "PM" : "AM"
+  const hr12 = h % 12 === 0 ? 12 : h % 12
+  return `${hr12}:00 ${suffix}`
+}
+
+export function PeakHoursCard({ peakHours = [] }) {
+  const maxOrders = peakHours.length > 0
+    ? Math.max(...peakHours.map(p => Number(p.total_orders) || 0), 1)
+    : 1
+
+  return (
+    <Card>
+      <div className="p-5 pb-3 border-b border-[var(--color-border)] flex items-center gap-2">
+        <Clock size={18} className="text-[var(--color-info)]" />
+        <div>
+          <div className="font-semibold text-[var(--color-primary)] text-base">Peak Order Hours</div>
+          <div className="text-xs text-[var(--color-muted)] mt-0.5">Busiest hours of the day by total order volume</div>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-3">
+        {peakHours.length === 0 ? (
+          <div className="text-center text-xs text-[var(--color-muted)] py-6">
+            No order hour data available yet.
+          </div>
+        ) : (
+          peakHours.map((row) => {
+            const count = Number(row.total_orders) || 0
+            const pct = Math.round((count / maxOrders) * 100)
+            return (
+              <div key={row.hour} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-[var(--color-text)]">{formatHourLabel(row.hour)}</span>
+                  <span className="font-semibold text-[var(--color-primary)]">
+                    {count} order{count !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="w-full h-2.5 rounded-full bg-[var(--color-primary-muted)] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[var(--color-primary)] transition-all duration-300"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            )
+          })
+        )}
       </div>
     </Card>
   )

@@ -63,6 +63,11 @@ export const deleteUnit = async (req, res) => {
   } catch (error) {
     if (error.code === "P2025")
       return res.status(404).json({ message: "Unit not found" });
+    if (error.code === "P2003")
+      return res.status(400).json({
+        code: "UNIT_HAS_STOCK",
+        message: "Cannot delete this unit — it is still used by stock items.",
+      });
     res.status(500).json({ message: "Internal server error" });
   }
 };

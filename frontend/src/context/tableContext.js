@@ -37,7 +37,13 @@ export const useTableStore = create((set, get) => ({
   
   getTableByToken: async (token) => {
     try {
+      // 1. Fetch table info by QR token
       const res = await api.get(`/tables/qr/${token}`);
+      // 2. Create/refresh the 2-hour guest session for this table
+      const sessionRes = await api.post("/guest-sessions", { qr_token: token });
+      if (sessionRes.data?.session_token) {
+        localStorage.setItem("zoom_guest_session", sessionRes.data.session_token);
+      }
       return res.data;
     } catch (error) {
       throw error;

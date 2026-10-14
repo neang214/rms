@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import { useDashboardStore } from "../../context/dashboardContext"
 import { usePageTitle } from "../../hooks/usePageTitle"
-import { RevenueStats, TopSellingTable } from "@/components/admin/DashboardParts"
+import { RevenueStats, TopSellingTable, PeakHoursCard } from "@/components/admin/DashboardParts"
 
 export default function Dashboard() {
   usePageTitle("Dashboard")
@@ -10,18 +10,21 @@ export default function Dashboard() {
     weeklyRevenue,
     monthlyRevenue,
     topSellingItems,
+    peakHours,
     fetchDailyRevenue,
     fetchWeeklyRevenue,
     fetchMonthlyRevenue,
     fetchTopSelling,
+    fetchPeakHours,
   } = useDashboardStore()
 
   useEffect(() => {
     fetchTopSelling()
+    fetchPeakHours()
     fetchDailyRevenue()
     fetchWeeklyRevenue()
     fetchMonthlyRevenue()
-  }, [fetchDailyRevenue, fetchWeeklyRevenue, fetchMonthlyRevenue, fetchTopSelling])
+  }, [fetchDailyRevenue, fetchWeeklyRevenue, fetchMonthlyRevenue, fetchTopSelling, fetchPeakHours])
 
   return (
     <div className="space-y-6">
@@ -32,7 +35,10 @@ export default function Dashboard() {
 
       <RevenueStats dailyRevenue={dailyRevenue} weeklyRevenue={weeklyRevenue} monthlyRevenue={monthlyRevenue} />
 
-      <TopSellingTable topSellingItems={topSellingItems} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TopSellingTable topSellingItems={topSellingItems} />
+        <PeakHoursCard peakHours={peakHours} />
+      </div>
     </div>
   )
 }
