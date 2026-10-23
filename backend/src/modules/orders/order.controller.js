@@ -263,7 +263,7 @@ export const createOrder = async (req, res) => {
     }
 
     const io = getIO();
-    io.to("role:cashier").to("role:server").emit("order:new", order);
+    io.to("role:cashier").to("role:server").to("role:admin").emit("order:new", order);
     io.to(`table:${order.table_id}`).emit("order:new", order);
 
     io.to("role:admin").to("role:cashier").to("role:server").emit("table:updated", {
@@ -294,7 +294,7 @@ export const confirmOrder = async (req, res) => {
     });
 
     const io = getIO();
-    io.to("role:cashier").to("role:server").emit("order:confirmed", order);
+    io.to("role:cashier").to("role:server").to("role:admin").emit("order:confirmed", order);
 
     
     

@@ -18,53 +18,70 @@ export function isAudioUnlocked() {
 }
 
 export function unlockAudioNow() {
-  const ctx = getAudioContext()
-  if (!ctx) return
-  if (ctx.state === "suspended") ctx.resume()
-  const osc = ctx.createOscillator()
-  const gain = ctx.createGain()
-  osc.connect(gain)
-  gain.connect(ctx.destination)
-  osc.frequency.value = 1046
-  gain.gain.setValueAtTime(0.35, ctx.currentTime)
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18)
-  osc.start(ctx.currentTime)
-  osc.stop(ctx.currentTime + 0.18)
+  try {
+    const ctx = getAudioContext()
+    if (!ctx) return
+    if (ctx.state === "suspended") {
+      ctx.resume().then(() => playAlertSound()).catch(() => {})
+    } else {
+      playAlertSound()
+    }
+  } catch (err) {
+    console.warn("Could not unlock audio:", err)
+  }
 }
 
 export function playAlertSound() {
   try {
     const ctx = getAudioContext()
     if (!ctx) return
-    if (ctx.state === "suspended") ctx.resume()
 
-    const playTone = (freq, startTime, duration, volume = 0.45) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.frequency.value = freq
-      osc.type = "sine"
-      gain.gain.setValueAtTime(volume, startTime)
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration)
-      osc.start(startTime)
-      osc.stop(startTime + duration)
+    const scheduleChime = () => {
+      const playTone = (freq, startTime, duration, volume = 0.5) => {
+        try {
+          const osc = ctx.createOscillator()
+          const gain = ctx.createGain()
+          osc.connect(gain)
+          gain.connect(ctx.destination)
+          osc.frequency.value = freq
+          osc.type = "sine"
+          const t0 = Math.max(startTime, ctx.currentTime + 0.01)
+          gain.gain.setValueAtTime(volume, t0)
+          gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration)
+          osc.start(t0)
+          osc.stop(t0 + duration)
+        } catch {}
+      }
+      const now = ctx.currentTime + 0.02
+      playTone(880, now, 0.2)
+      playTone(1175, now + 0.22, 0.26)
+      playTone(880, now + 0.52, 0.2)
+      playTone(1175, now + 0.74, 0.26)
     }
-    const now = ctx.currentTime
-    
-    
-    playTone(880, now, 0.22)
-    playTone(1175, now + 0.24, 0.28)
-    playTone(880, now + 0.6, 0.22)
-    playTone(1175, now + 0.84, 0.28)
-  } catch {}
+
+    if (ctx.state === "suspended") {
+      ctx.resume().then(scheduleChime).catch(() => {})
+    } else {
+      scheduleChime()
+    }
+  } catch (err) {
+    console.warn("Could not play alert sound:", err)
+  }
 }
 
 export function unlockAudioOnFirstInteraction() {
   const unlock = () => {
     try {
       const ctx = getAudioContext()
-      if (ctx && ctx.state === "suspended") ctx.resume()
+      if (ctx) {
+        if (ctx.state === "suspended") ctx.resume()
+        // Silent buffer play is required to unlock audio on iOS WebKit & Android Chrome
+        const buffer = ctx.createBuffer(1, 1, 22050)
+        const source = ctx.createBufferSource()
+        source.buffer = buffer
+        source.connect(ctx.destination)
+        source.start(0)
+      }
     } catch {}
     window.removeEventListener("click", unlock)
     window.removeEventListener("keydown", unlock)
@@ -88,31 +105,11 @@ export function useStaffNotifications(role) {
     setTimeout(() => setBellRinging(false), 2000)
   }, [])
 
-  
-  
-  
-  
   useSocketEvent("order:new", () => {
-    if (role === "cashier") {
+    if (role === "cashier" || role === "admin" || role === "server") {
       fetchUnconfirmedOrders()
       ring()
     }
-    if (role === "kitchen") fetchKitchenQueue()
-    if (role === "barista") fetchBaristaQueue()
-  })
-  useSocketEvent("order:confirmed", () => {
-    if (role === "cashier") fetchUnconfirmedOrders()
-  })
-  useSocketEvent("order:deleted", () => {
-    if (role === "cashier") fetchUnconfirmedOrders()
-  })
-
-  
-  
-  
-  
-  useSocketEvent("order_item:new", () => {
-    if (role === "cashier") ring()
     if (role === "kitchen") {
       fetchKitchenQueue()
       ring()
@@ -123,13 +120,60 @@ export function useStaffNotifications(role) {
     }
   })
 
+  useSocketEvent("order:confirmed", () => {
+    if (role === "cashier" || role === "admin") fetchUnconfirmedOrders()
+    if (role === "kitchen") {
+      fetchKitchenQueue()
+      ring()
+    }
+    if (role === "barista") {
+      fetchBaristaQueue()
+      ring()
+    }
+  })
+
+  useSocketEvent("order:deleted", () => {
+    if (role === "cashier" || role === "admin") fetchUnconfirmedOrders()
+    if (role === "kitchen") fetchKitchenQueue()
+    if (role === "barista") fetchBaristaQueue()
+  })
+
+  useSocketEvent("order_item:new", () => {
+    if (role === "cashier" || role === "admin" || role === "server") {
+      fetchUnconfirmedOrders()
+      ring()
+    }
+    if (role === "kitchen") {
+      fetchKitchenQueue()
+      ring()
+    }
+    if (role === "barista") {
+      fetchBaristaQueue()
+      ring()
+    }
+  })
+
+  useSocketEvent("order_item:status_changed", (item) => {
+    if (role === "kitchen") fetchKitchenQueue()
+    if (role === "barista") fetchBaristaQueue()
+    if (item?.status === "Ready" && (role === "cashier" || role === "server" || role === "admin")) {
+      ring()
+    }
+  })
+
+  useSocketEvent("order:status_changed", (order) => {
+    if (order?.status === "Served" && (role === "cashier" || role === "server" || role === "admin")) {
+      ring()
+    }
+  })
+
   let count = 0
-  if (role === "cashier") count = unconfirmedOrders.length
+  if (role === "cashier" || role === "admin" || role === "server") count = unconfirmedOrders.length
   if (role === "kitchen") count = kitchenQueue.filter(i => i.status === "Pending").length
   if (role === "barista") count = baristaQueue.filter(i => i.status === "Pending").length
 
   const refresh = useCallback(() => {
-    if (role === "cashier") fetchUnconfirmedOrders()
+    if (role === "cashier" || role === "admin" || role === "server") fetchUnconfirmedOrders()
     if (role === "kitchen") fetchKitchenQueue()
     if (role === "barista") fetchBaristaQueue()
   }, [role])

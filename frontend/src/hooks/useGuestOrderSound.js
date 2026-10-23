@@ -1,9 +1,14 @@
+import { useEffect } from "react"
 import { useSocketEvent } from "../services/socket"
-import { playAlertSound } from "./useStaffNotifications"
+import { playAlertSound, unlockAudioOnFirstInteraction } from "./useStaffNotifications"
 
 const STORAGE_KEY = "zoom_last_alerted_status"
 
 export function useGuestOrderSound() {
+  useEffect(() => {
+    unlockAudioOnFirstInteraction()
+  }, [])
+
   useSocketEvent("order:status_changed", (data) => {
     if (!data?.status) return
     

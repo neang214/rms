@@ -155,7 +155,7 @@ export const addItem = async (req, res) => {
 
     const io = getIO();
 
-    io.to("role:cashier").to("role:server").emit("order_item:new", orderItem);
+    io.to("role:cashier").to("role:server").to("role:admin").emit("order_item:new", orderItem);
     io.to(`table:${order.table_id}`).emit("order_item:new", orderItem);
 
     if (order.confirmed) {

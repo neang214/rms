@@ -4,7 +4,7 @@ import { useTheme } from "next-themes"
 import {
   LayoutDashboard, UtensilsCrossed, Package, TableIcon,
   CreditCard, Users, Truck, LogOut, Bell, Moon, Sun,
-  Menu as MenuIcon, ChefHat, ShoppingBag, Coffee, Clock, BarChart3, ClipboardList
+  Menu as MenuIcon, ChefHat, ShoppingBag, Coffee, Clock, BarChart3, ClipboardList, Volume2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { authContext } from "../context/authContext"
@@ -102,19 +102,12 @@ export default function Layout({ children }) {
     cashier: "/cashier/orders",
     kitchen: "/kitchen/orders",
     barista: "/barista/orders",
+    server: "/server/orders",
   }
 
-  
-  
-  
   useEffect(() => { unlockAudioOnFirstInteraction() }, [])
 
-  
-  
-  
-  
-  
-  const needsSoundPrompt = ["cashier", "kitchen", "barista"].includes(role)
+  const needsSoundPrompt = ["cashier", "kitchen", "barista", "admin", "server"].includes(role)
   const [soundUnlocked, setSoundUnlocked] = useState(isAudioUnlocked())
 
   useEffect(() => {
@@ -280,7 +273,16 @@ export default function Layout({ children }) {
               )}
             </button>
 
-            {}
+            {/* Test sound button */}
+            <button
+              onClick={unlockAudioNow}
+              title="Test notification alert sound"
+              className="p-2 rounded-xl hover:bg-[var(--color-primary-muted)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors"
+            >
+              <Volume2 size={16} />
+            </button>
+
+            {/* Dark / Light toggle */}
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="p-2 rounded-xl hover:bg-[var(--color-primary-muted)] text-[var(--color-text-secondary)] transition-colors"
