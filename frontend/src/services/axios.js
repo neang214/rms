@@ -13,6 +13,10 @@ clientApi.interceptors.request.use((config) => {
   if (guestSession) {
     config.headers["x-guest-session"] = guestSession
   }
+  const token = localStorage.getItem("rms_token")
+  if (token) {
+    config.headers["Authorization"] = `Bearer ${token}`
+  }
   return config
 })
 

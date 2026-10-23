@@ -41,8 +41,9 @@ export const authContext = create(
                 try {
                     const res = await api.post("/auth/login", formData);
                     const userData = res.data.user || res.data;
-                    
-                    
+                    if (res.data.token) {
+                        localStorage.setItem("rms_token", res.data.token);
+                    }
                     
                     sessionStorage.setItem(TAB_SESSION_KEY, "true");
                     set({ user: userData, isLoading: false });
@@ -60,6 +61,7 @@ export const authContext = create(
                     console.error("Logout request error:", err);
                 } finally {
                     sessionStorage.removeItem(TAB_SESSION_KEY);
+                    localStorage.removeItem("rms_token");
                     set({ user: null });
                     localStorage.removeItem("rms-auth-storage");
                 }

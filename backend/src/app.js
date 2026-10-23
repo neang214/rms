@@ -26,8 +26,23 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(cookieParser());
 app.use("/uploads", express.static("uploads"));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://zoom-rms.vercel.app",
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(",").map(s => s.trim()) : [])
+];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      /\.vercel\.app$/.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
 }));
 

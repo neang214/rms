@@ -5,7 +5,18 @@ let io = null;
 export function initSocket(httpServer) {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:5173",
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (
+          origin === "http://localhost:5173" ||
+          origin === "https://zoom-rms.vercel.app" ||
+          /\.vercel\.app$/.test(origin) ||
+          (process.env.CLIENT_URL && process.env.CLIENT_URL.includes(origin))
+        ) {
+          return callback(null, true);
+        }
+        return callback(new Error(`Socket CORS blocked for origin: ${origin}`));
+      },
       credentials: true,
     },
   });
