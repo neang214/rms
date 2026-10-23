@@ -5,27 +5,74 @@ import { useLang } from "@/i18n/LanguageContext"
 const FALLBACK_IMG = "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&h=200&fit=crop"
 
 function MenuItemCard({ item, qty, onAdd, onRemove, lang }) {
+  const isSelected = qty > 0
+  const isAvailable = item.available !== false
+
   return (
-    <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden hover:shadow-md transition-all group relative">
-      <div className="relative h-32 overflow-hidden bg-[var(--color-border)]">
-        <img src={imageUrl(item.image_url, FALLBACK_IMG)} alt={menuItemName(item, lang)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+    <div
+      className={cn(
+        "bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden shadow-xs hover:shadow-md transition-all duration-200 group flex flex-col justify-between relative",
+        isSelected && "ring-2 ring-[var(--color-primary)] border-transparent shadow-md",
+        !isAvailable && "opacity-60"
+      )}
+    >
+      <div className="relative h-32 overflow-hidden bg-[var(--color-border)]/40 shrink-0">
+        <img
+          src={imageUrl(item.image_url, FALLBACK_IMG)}
+          alt={menuItemName(item, lang)}
+          onError={(e) => { e.currentTarget.src = FALLBACK_IMG }}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+        {!isAvailable && (
+          <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex items-center justify-center">
+            <span className="bg-[var(--color-danger)] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              Sold Out
+            </span>
+          </div>
+        )}
+        {isSelected && (
+          <div className="absolute top-2 right-2 bg-[var(--color-primary)] text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-md animate-scale-in">
+            {qty}
+          </div>
+        )}
       </div>
-      <div className="p-2.5">
-        <div className="font-medium text-[var(--color-text)] text-xs leading-snug line-clamp-2 mb-2">{menuItemName(item, lang)}</div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-bold text-[var(--color-text)]">$ {Number(item.price).toFixed(2)}</span>
-          {qty === 0 ? (
-            <button onClick={() => onAdd(item.menu_item_id)} className="w-7 h-7 rounded-full bg-[var(--color-primary)]/10 hover:bg-[var(--color-primary)] hover:text-white text-[var(--color-primary)] flex items-center justify-center transition-all">
-              <Plus size={14} />
+
+      <div className="p-2.5 flex flex-col flex-1 justify-between gap-2">
+        <div className="font-semibold text-[var(--color-text)] text-xs leading-snug line-clamp-2">
+          {menuItemName(item, lang)}
+        </div>
+
+        <div className="flex items-center justify-between pt-1 border-t border-[var(--color-border)]/50">
+          <span className="text-sm font-bold text-[var(--color-primary)]">
+            ${Number(item.price).toFixed(2)}
+          </span>
+
+          {!isAvailable ? (
+            <span className="text-[10px] text-[var(--color-danger)] font-medium">Unavailable</span>
+          ) : qty === 0 ? (
+            <button
+              onClick={() => onAdd(item.menu_item_id)}
+              className="w-8 h-8 rounded-xl bg-[var(--color-primary-muted)] text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white flex items-center justify-center transition-all shadow-xs active:scale-95"
+              title="Add to order"
+            >
+              <Plus size={15} />
             </button>
           ) : (
-            <div className="flex items-center gap-1">
-              <button onClick={() => onRemove(item.menu_item_id)} className="w-6 h-6 rounded-full bg-[var(--color-danger-muted)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white flex items-center justify-center transition-all">
-                <Minus size={11} />
+            <div className="flex items-center gap-1 bg-[var(--color-background)] rounded-xl p-0.5 border border-[var(--color-border)]">
+              <button
+                onClick={() => onRemove(item.menu_item_id)}
+                className="w-7 h-7 rounded-lg bg-[var(--color-surface)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white flex items-center justify-center transition-all shadow-xs"
+              >
+                <Minus size={12} />
               </button>
-              <span className="text-xs font-bold w-4 text-center text-[var(--color-primary)]">{qty}</span>
-              <button onClick={() => onAdd(item.menu_item_id)} className="w-6 h-6 rounded-full bg-[var(--color-primary)]/10 hover:bg-[var(--color-primary)] hover:text-white text-[var(--color-primary)] flex items-center justify-center transition-all">
-                <Plus size={11} />
+              <span className="text-xs font-bold px-1.5 text-center text-[var(--color-primary)]">
+                {qty}
+              </span>
+              <button
+                onClick={() => onAdd(item.menu_item_id)}
+                className="w-7 h-7 rounded-lg bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)] flex items-center justify-center transition-all shadow-xs"
+              >
+                <Plus size={12} />
               </button>
             </div>
           )}

@@ -60,26 +60,43 @@ export default function StationMenu({ config }) {
         <div className="text-center py-16 text-[var(--color-muted)] text-sm">No menu items found.</div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {filtered.map(item => (
-            <div key={item.menu_item_id} className={cn("bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden group relative", !item.available && "opacity-60")}>
-              <div className="relative h-32 overflow-hidden bg-[var(--color-border)]">
-                <img src={imageUrl(item.image_url, config.fallbackImg)} alt={menuItemName(item, lang)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          {(filtered || []).map(item => (
+            <div
+              key={item.menu_item_id}
+              className={cn(
+                "bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden shadow-xs hover:shadow-md transition-all duration-200 group flex flex-col justify-between relative",
+                !item.available && "opacity-60"
+              )}
+            >
+              <div className="relative h-32 overflow-hidden bg-[var(--color-border)]/40 shrink-0">
+                <img
+                  src={imageUrl(item.image_url, config.fallbackImg)}
+                  alt={menuItemName(item, lang)}
+                  onError={(e) => { e.currentTarget.src = config.fallbackImg }}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
                 {!item.available && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <span className="bg-[var(--color-danger)] text-white text-xs font-bold px-2 py-0.5 rounded-full">{t("common.soldOut")}</span>
+                  <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex items-center justify-center">
+                    <span className="bg-[var(--color-danger)] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      {t("common.soldOut")}
+                    </span>
                   </div>
                 )}
               </div>
-              <div className="p-2.5">
-                <div className="font-medium text-[var(--color-text)] text-xs leading-snug line-clamp-2 mb-1">{menuItemName(item, lang)}</div>
-                <div className="flex items-center justify-between mt-1">
-                  <div className="text-sm font-bold text-[var(--color-text)]">$ {Number(item.price).toFixed(2)}</div>
+              <div className="p-2.5 flex flex-col flex-1 justify-between gap-1.5">
+                <div className="font-semibold text-[var(--color-text)] text-xs leading-snug line-clamp-2">
+                  {menuItemName(item, lang)}
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-[var(--color-border)]/50">
+                  <div className="text-sm font-bold text-[var(--color-primary)]">
+                    ${Number(item.price).toFixed(2)}
+                  </div>
                   <button
                     onClick={(e) => handleToggle(item, e)}
                     disabled={togglingId === item.menu_item_id}
                     title={item.available ? t("station.markSoldOut") : t("station.markAvailable")}
                     className={cn(
-                      "transition-colors",
+                      "p-1 rounded-lg hover:bg-[var(--color-primary-muted)] transition-colors",
                       item.available ? "text-[var(--color-primary)]" : "text-[var(--color-muted)]",
                       togglingId === item.menu_item_id && "opacity-50"
                     )}
