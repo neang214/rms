@@ -8,28 +8,30 @@ export const authContext = create(
     persist(
         (set, get) => ({
             user: null,
-            isLoading: false,
+            isLoading: true,
 
             checkAuth: async () => {
-                if (sessionStorage.getItem(TAB_SESSION_KEY) !== "true") {
+                const isTabAuthed = sessionStorage.getItem(TAB_SESSION_KEY) === "true";
+                const hasToken = localStorage.getItem("rms_token");
+
+                if (!isTabAuthed && !hasToken) {
                     set({ user: null, isLoading: false });
                     return;
                 }
 
-                if (!get().user) {
-                    set({ isLoading: true });
-                }
+                set({ isLoading: true });
 
                 try {
                     const res = await api.get("/auth/me");
                     const userData = res.data.user || res.data;
                     set({ user: userData, isLoading: false });
                 } catch (error) {
-                    console.error("Session verification sync failed:", error);
                     if (
                         error.response?.status === 401 ||
                         error.response?.status === 403
                     ) {
+                        sessionStorage.removeItem(TAB_SESSION_KEY);
+                        localStorage.removeItem("rms_token");
                         set({ user: null });
                     }
                     set({ isLoading: false });

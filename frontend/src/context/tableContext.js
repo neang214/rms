@@ -29,7 +29,9 @@ export const useTableStore = create((set, get) => ({
       return res.data;
     } catch (error) {
       set({ error: error.message, isLoading: false });
-      throw error;
+      if (error?.response?.status !== 401 && error?.response?.status !== 403) {
+        throw error;
+      }
     }
   },
 

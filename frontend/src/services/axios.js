@@ -20,4 +20,15 @@ clientApi.interceptors.request.use((config) => {
   return config
 })
 
+clientApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      localStorage.removeItem("rms_token")
+      sessionStorage.removeItem("rms-tab-authenticated")
+    }
+    return Promise.reject(error)
+  }
+)
+
 export default clientApi 
