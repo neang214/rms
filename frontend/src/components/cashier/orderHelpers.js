@@ -10,8 +10,8 @@ export function orderTotal(order) {
 
 export const statusConfig = {
   Served:    { labelKey: "cashier.readyForPayment", color: "bg-[var(--color-primary)] text-white", barColor: "border-l-[var(--color-primary)]" },
-  Preparing: { labelKey: "status.cooking",          color: "bg-amber-100 text-amber-700",          barColor: "border-l-amber-400" },
-  Pending:   { labelKey: "status.pending",          color: "bg-gray-100 text-gray-600",            barColor: "border-l-gray-300" },
+  Preparing: { labelKey: "status.cooking",          color: "bg-[var(--color-accent-muted)] text-[var(--color-warning)]", barColor: "border-l-[var(--color-warning)]" },
+  Pending:   { labelKey: "status.pending",          color: "bg-[var(--color-border)] text-[var(--color-text-secondary)]", barColor: "border-l-[var(--color-border-strong)]" },
 }
 
 export function printOrderReceipt(order) {
