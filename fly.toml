@@ -1,4 +1,4 @@
-# fly.toml app configuration file
+# fly.toml app configuration file generated for zoom-rms-backend
 app = "zoom-rms-backend"
 primary_region = "sin"
 
@@ -14,7 +14,7 @@ primary_region = "sin"
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ["app"]
 
 [[vm]]
