@@ -77,18 +77,61 @@ export default function CashierOrders() {
   // as-is, matching is exact on the number so "5" doesn't accidentally
   
   const searchQuery = search.trim().toLowerCase()
-  
-  
-  
   const searchDigits = searchQuery.replace(/\D/g, "")
   const searchAsNumber = searchDigits ? parseInt(searchDigits, 10) : null
 
   const searchedOrders = searchQuery
-    ? activeOrders.filter(o =>
-        String(o.table?.table_number ?? "").toLowerCase().includes(searchQuery) ||
-        (searchAsNumber !== null && o.queue_number === searchAsNumber)
-      )
+    ? activeOrders.filter(o => {
+        const orderIdStr = String(o.order_id)
+        const paddedOrderId = orderIdStr.padStart(4, "0")
+        // 1. Order Number / ID match (#42, ORD-0042, 42, 0042)
+        if (
+          (searchAsNumber !== null && o.order_id === searchAsNumber) ||
+          orderIdStr.includes(searchQuery) ||
+          paddedOrderId.includes(searchQuery) ||
+          `#${orderIdStr}`.includes(searchQuery) ||
+          `#${paddedOrderId}`.includes(searchQuery) ||
+          `ord-${paddedOrderId}`.toLowerCase().includes(searchQuery) ||
+          `ord-${orderIdStr}`.toLowerCase().includes(searchQuery)
+        ) {
+          return true
+        }
+
+        // 2. Queue number match
+        if (searchAsNumber !== null && o.queue_number === searchAsNumber) {
+          return true
+        }
+
+        // 3. Table number match
+        const tableNum = String(o.table?.table_number ?? "").toLowerCase()
+        if (tableNum && (tableNum.includes(searchQuery) || `table ${tableNum}`.includes(searchQuery))) {
+          return true
+        }
+
+        // 4. Note match
+        if (o.note && o.note.toLowerCase().includes(searchQuery)) {
+          return true
+        }
+
+        // 5. Item match
+        if (o.order_items?.some(oi => oi.menu_item?.item_name?.toLowerCase().includes(searchQuery))) {
+          return true
+        }
+
+        return false
+      })
     : activeOrders
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter" && searchQuery) {
+      if (searchedOrders.length === 1) {
+        setPayOrder(searchedOrders[0])
+      } else if (searchAsNumber !== null) {
+        const exact = activeOrders.find(o => o.order_id === searchAsNumber)
+        if (exact) setPayOrder(exact)
+      }
+    }
+  }
 
   const stats = {
     active: activeOrders.length,
@@ -138,14 +181,15 @@ export default function CashierOrders() {
       <PageHeader icon={ShoppingBag} title={t("nav.orders")}
         subtitle={`• ${stats.active} active`} />
 
-      {}
+      {/* Search & Scan */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Find by table # or waiting #"
+            onKeyDown={handleSearchKeyDown}
+            placeholder="Search by order # (e.g. #0042), table, or waiting #..."
             className="w-full h-10 pl-9 pr-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
           />
         </div>

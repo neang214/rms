@@ -1,12 +1,27 @@
 import { useRef, useState } from "react"
-import { Html5Qrcode } from "html5-qrcode"
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode"
 import { QrCode, X, Loader2 } from "lucide-react"
 
 const SCANNER_ELEMENT_ID = "receipt-qr-scanner"
 
 function extractOrderId(decodedText) {
-  const match = decodedText.match(/^order:(\d+)$/)
-  return match ? parseInt(match[1]) : null
+  if (!decodedText) return null
+  const clean = String(decodedText).trim()
+
+  // 1. Matches ORD-0042, ORD-42, order:42, #42
+  const prefMatch = clean.match(/(?:order:?|ORD-?|#)(\d+)/i)
+  if (prefMatch) return parseInt(prefMatch[1], 10)
+
+  // 2. Matches URL patterns like /orders/42 or ?order=42
+  const urlMatch = clean.match(/[?&/]order[=_/-]?(\d+)/i)
+  if (urlMatch) return parseInt(urlMatch[1], 10)
+
+  // 3. Raw number (e.g. 0042 or 42)
+  if (/^\d+$/.test(clean)) {
+    return parseInt(clean, 10)
+  }
+
+  return null
 }
 
 export default function ReceiptScanner({ onFound, onClose }) {
@@ -36,18 +51,27 @@ export default function ReceiptScanner({ onFound, onClose }) {
     if (!node || startedRef.current) return
     startedRef.current = true
     try {
-      const qr = new Html5Qrcode(SCANNER_ELEMENT_ID)
+      const qr = new Html5Qrcode(SCANNER_ELEMENT_ID, {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.UPC_A,
+        ],
+        verbose: false,
+      })
       scannerRef.current = qr
       await qr.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: 240 },
+        { fps: 12, qrbox: { width: 260, height: 180 } },
         async (decodedText) => {
           const orderId = extractOrderId(decodedText)
-          await stopScanner()
           if (orderId) {
+            await stopScanner()
             onFound(orderId)
           } else {
-            setError("That doesn't look like a receipt QR code.")
+            setError(`Scanned "${decodedText}". Please scan the receipt barcode or QR code.`)
           }
         },
         () => {
@@ -78,7 +102,7 @@ export default function ReceiptScanner({ onFound, onClose }) {
         {error ? (
           <div className="text-[var(--color-danger)]">{error}</div>
         ) : (
-          <div className="flex items-center justify-center gap-1.5"><Loader2 size={12} className="animate-spin" /> Point the camera at the QR code on the receipt</div>
+          <div className="flex items-center justify-center gap-1.5"><Loader2 size={12} className="animate-spin" /> Point camera at the barcode or QR code on the receipt</div>
         )}
       </div>
     </div>

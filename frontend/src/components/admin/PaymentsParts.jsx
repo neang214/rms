@@ -1,6 +1,7 @@
 import { ShoppingCart, TrendingUp, Receipt, Printer, RefreshCw, DollarSign } from "lucide-react"
 import { Button, Card, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Badge } from "@/components/ui"
 import { cn } from "@/lib/utils"
+import { printExecutiveReport } from "@/components/cashier/orderHelpers"
 
 export const periods = ["Daily", "Weekly", "Monthly"]
 
@@ -68,7 +69,9 @@ export function ReportBuilder({ generated, setGenerated, activePeriod, setActive
         ) : (
           <>
             <div className="flex gap-2 flex-wrap justify-end">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.print()}><Printer size={13} /> Print Report</Button>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => printExecutiveReport({ period: activePeriod, totalRevenue, paidOrders, avgOrderValue, periodOrders })}>
+                <Printer size={13} /> Print Report
+              </Button>
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setGenerated(false)}><RefreshCw size={13} /> Generate New Report</Button>
             </div>
 

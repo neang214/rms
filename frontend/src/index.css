@@ -116,3 +116,17 @@ body {
 body { transition: background-color 0.2s ease, color 0.2s ease; }
 
 h1, h2, h3 { letter-spacing: -0.01em; }
+
+@media print {
+  aside,
+  header,
+  nav,
+  button,
+  .no-print {
+    display: none !important;
+  }
+  body, #root {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+}
