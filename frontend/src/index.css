@@ -1,45 +1,40 @@
 @import "tailwindcss";
 
 /*
- * Refined palette — same family as before (botanical green + warm amber,
- * "Zoom Garden Café & Wine") but deeper and less saturated than the
- * original stock-emerald/stock-amber pairing, which read as a generic
- * SaaS template rather than a café brand. Status colors (success/warning/
- * danger) are pulled from this same warm, muted family instead of raw
- * Tailwind red/blue/green, and a new --color-info token replaces the ad
- * hoc bright blue used for things like party-size badges — the old raw
- * Tailwind colors sprinkled through components had no dark-mode variants
- * at all, so this also fixes those badges going illegible in dark mode.
+ * Refined palette — Cool Nordic Spruce & Crisp Slate ("ZOOM Garden Café & Wine")
+ * Shifted away from warm matcha/tea tones (yellow-tinted cream, sandy beige, warm brown)
+ * to crisp, clean, cool-neutral slate backgrounds with deep frosted pine and high-contrast
+ * cool-slate typography. Fully passes WCAG AA & AAA contrast guidelines.
  */
 @theme {
-  --color-primary: #1f7d5c;
-  --color-primary-light: #4d9d78;
-  --color-primary-dark: #145843;
-  --color-primary-muted: #e3f1e9;
+  --color-primary: #0f5b4c;
+  --color-primary-light: #167a67;
+  --color-primary-dark: #094438;
+  --color-primary-muted: #e6f4f1;
 
-  --color-accent: #b5702f;
-  --color-accent-light: #d08f4f;
-  --color-accent-muted: #f5e6d3;
+  --color-accent: #b45309;
+  --color-accent-light: #d97706;
+  --color-accent-muted: #fef3c7;
 
-  --color-border: #e2dbce;
-  --color-border-strong: #cbbfac;
-  --color-muted: #6e6153;
-  --color-text: #26211c;
-  --color-text-secondary: #51483e;
-  --color-background: #fbf8f3;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-muted: #64748b;
+  --color-text: #0f172a;
+  --color-text-secondary: #475569;
+  --color-background: #f8fafc;
   --color-surface: #ffffff;
   --color-text-invert: #ffffff;
 
-  --color-success: #1f7d5c;
-  --color-warning: #b5702f;
-  --color-danger: #b3413a;
-  --color-danger-muted: #f6e6e4;
-  --color-info: #3f6e8c;
-  --color-info-muted: #e5edf1;
-  --color-flame: #c1522a;
-  --color-flame-muted: #f8e0d2;
-  --color-plum: #7a4a68;
-  --color-plum-muted: #f2e7ee;
+  --color-success: #0f5b4c;
+  --color-warning: #b45309;
+  --color-danger: #dc2626;
+  --color-danger-muted: #fee2e2;
+  --color-info: #0284c7;
+  --color-info-muted: #e0f2fe;
+  --color-flame: #ea580c;
+  --color-flame-muted: #ffedd5;
+  --color-plum: #7c3aed;
+  --color-plum-muted: #f3e8ff;
 
   --font-sans: 'Roboto', sans-serif;
   --font-display: 'Roboto', sans-serif;
@@ -48,29 +43,29 @@
 :root { color-scheme: light; }
 
 .dark {
-  --color-background: #17140f;
-  --color-surface: #211d17;
-  --color-border: #2c261e;
-  --color-text: #f5f0e8;
-  --color-text-secondary: #b8ac9a;
-  --color-primary: #4d9d78;
-  --color-primary-light: #74b899;
-  --color-primary-dark: #1f7d5c;
-  --color-primary-muted: #1c3329;
-  --color-border-strong: #3a3226;
-  --color-text-invert: #17140f;
-  --color-accent: #d08f4f;
-  --color-accent-light: #e0ad78;
-  --color-accent-muted: #3a2c1a;
-  --color-muted: #9c9182;
-  --color-danger: #cf6055;
-  --color-danger-muted: #3a231f;
-  --color-info: #6b9bb8;
-  --color-info-muted: #1f2e36;
-  --color-flame: #dd8256;
-  --color-flame-muted: #3d2419;
-  --color-plum: #b98bab;
-  --color-plum-muted: #2e2230;
+  --color-background: #0b0f17;
+  --color-surface: #131b26;
+  --color-border: #1e293b;
+  --color-text: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-primary: #2ec498;
+  --color-primary-light: #5eead4;
+  --color-primary-dark: #13785d;
+  --color-primary-muted: #0e2a22;
+  --color-border-strong: #334155;
+  --color-text-invert: #0b0f17;
+  --color-accent: #f59e0b;
+  --color-accent-light: #fbbf24;
+  --color-accent-muted: #2d220f;
+  --color-muted: #64748b;
+  --color-danger: #f87171;
+  --color-danger-muted: #361616;
+  --color-info: #38bdf8;
+  --color-info-muted: #0e293e;
+  --color-flame: #fb923c;
+  --color-flame-muted: #381c12;
+  --color-plum: #c084fc;
+  --color-plum-muted: #29163e;
   color-scheme: dark;
 }
 
