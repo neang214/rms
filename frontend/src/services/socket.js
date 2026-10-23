@@ -11,6 +11,7 @@ function getSocket() {
   if (!socket) {
     socket = io(SOCKET_URL, {
       withCredentials: true,
+      transports: ["websocket", "polling"],
       autoConnect: true,
       reconnection: true,
       reconnectionDelay: 1000,

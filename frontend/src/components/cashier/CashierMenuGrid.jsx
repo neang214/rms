@@ -1,4 +1,4 @@
-import { imageUrl, menuItemName } from "@/lib/utils"
+import { imageUrl, menuItemName, cn } from "@/lib/utils"
 import { Plus, Minus } from "lucide-react"
 import { useLang } from "@/i18n/LanguageContext"
 
