@@ -1,15 +1,56 @@
+# Dependencies
 node_modules/
+.pnpm-store/
 
 # Environment variables
 .env
 .env.*
+*.env
 !.env.example
 
+# Production build outputs
+dist/
+dist-ssr/
+build/
+out/
+backend/dist/
+frontend/dist/
+
 # Prisma generated client
-server/src/generated/prisma/
+backend/src/generated/
+src/generated/
 
-# Build output
-server/dist/
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# VS Code
+# Archives and compressed files
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Runtime & cache
+.eslintcache
+.cache/
+coverage/
+.temp/
+.tmp/
+
+# Editor and OS files
 .vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db

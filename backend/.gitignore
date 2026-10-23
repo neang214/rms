@@ -1,4 +1,18 @@
-node_modules
-.env
-/src/generated/prisma
+# Dependencies
+node_modules/
 
+# Environment
+.env
+.env.*
+!.env.example
+
+# Prisma
+src/generated/
+
+# Build output
+dist/
+
+# Logs & temp
+*.log
+logs/
+*.zip
