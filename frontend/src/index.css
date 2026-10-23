@@ -7,10 +7,10 @@
  * cool-slate typography. Fully passes WCAG AA & AAA contrast guidelines.
  */
 @theme {
-  --color-primary: #0f5b4c;
-  --color-primary-light: #167a67;
-  --color-primary-dark: #094438;
-  --color-primary-muted: #e6f4f1;
+  --color-primary: #059669;
+  --color-primary-light: #10b981;
+  --color-primary-dark: #047857;
+  --color-primary-muted: #ecfdf5;
 
   --color-accent: #b45309;
   --color-accent-light: #d97706;
@@ -25,7 +25,7 @@
   --color-surface: #ffffff;
   --color-text-invert: #ffffff;
 
-  --color-success: #0f5b4c;
+  --color-success: #059669;
   --color-warning: #b45309;
   --color-danger: #dc2626;
   --color-danger-muted: #fee2e2;
@@ -48,10 +48,10 @@
   --color-border: #1e293b;
   --color-text: #f8fafc;
   --color-text-secondary: #94a3b8;
-  --color-primary: #2ec498;
-  --color-primary-light: #5eead4;
-  --color-primary-dark: #13785d;
-  --color-primary-muted: #0e2a22;
+  --color-primary: #10b981;
+  --color-primary-light: #34d399;
+  --color-primary-dark: #059669;
+  --color-primary-muted: #064e3b;
   --color-border-strong: #334155;
   --color-text-invert: #0b0f17;
   --color-accent: #f59e0b;
