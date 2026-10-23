@@ -56,7 +56,7 @@ export function TablesList({ tables, isLoading, onQr, onView, onEdit, onDelete }
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tables.map(t => (
+              {(tables || []).map(t => (
                 <TableRow key={t.table_id}>
                   <TableCell className="font-semibold">{t.table_number}</TableCell>
                   <TableCell className="text-[var(--color-muted)]">{t.capacity} guests</TableCell>
@@ -73,7 +73,7 @@ export function TablesList({ tables, isLoading, onQr, onView, onEdit, onDelete }
                   </TableCell>
                 </TableRow>
               ))}
-              {tables.length === 0 && (
+              {(!tables || tables.length === 0) && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-sm text-[var(--color-muted)] py-8">No tables found.</TableCell>
                 </TableRow>

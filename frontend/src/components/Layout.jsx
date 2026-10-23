@@ -143,16 +143,16 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[var(--color-background)]">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-[var(--color-background)]">
 
-      {}
+      {/* Sidebar */}
       <aside className={cn(
         "fixed inset-y-0 left-0 z-40 w-56 shrink-0 bg-[var(--color-surface)] border-r border-[var(--color-border)] flex flex-col transition-transform duration-300",
         "lg:static lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
 
-        {}
+        {/* Brand */}
         <div className="px-4 pt-5 pb-4 shrink-0">
           <div className="border-2 border-[var(--color-primary)] rounded-xl p-3 text-center">
             <div className="font-display font-bold text-xl text-[var(--color-primary)] leading-tight">ZOOM</div>
@@ -161,7 +161,7 @@ export default function Layout({ children }) {
           </div>
         </div>
 
-        {}
+        {/* Role badge */}
         <div className="px-4 pb-3">
           <div className={cn("inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full w-full justify-center", info.badge)}>
             <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
@@ -169,7 +169,12 @@ export default function Layout({ children }) {
           </div>
         </div>
 
-        {}
+        {/* Mobile Language Switcher */}
+        <div className="px-4 pb-2 lg:hidden">
+          <LanguageSwitcher langs={["en", "km"]} className="w-full justify-center" />
+        </div>
+
+        {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 space-y-0.5 py-1">
           {nav.main.map(({ to, icon: Icon, label }) => (
             <NavLink

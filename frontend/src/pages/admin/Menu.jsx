@@ -42,13 +42,13 @@ export default function Menu() {
     fetchCategories()
   }, [])
 
-  const filtered = items.filter(i => {
+  const filtered = (items || []).filter(i => {
     const matchesCat = activeCat === "All" || i.category_id === activeCat
     const matchesSearch = i.item_name?.toLowerCase().includes(search.toLowerCase())
     return matchesCat && matchesSearch
   })
 
-  const categoryName = (id) => categories.find(c => c.category_id === id)?.category_name || "—"
+  const categoryName = (id) => (categories || []).find(c => c.category_id === id)?.category_name || "—"
 
   const handleImageSelect = (file) => {
     setImageFile(file)

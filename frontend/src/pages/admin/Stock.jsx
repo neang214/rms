@@ -61,9 +61,9 @@ export default function Stock() {
     fetchSuppliers()
   }, [])
 
-  const lowStockIds = new Set(lowStock.map(i => i.stock_id))
+  const lowStockIds = new Set((lowStock || []).map(i => i.stock_id))
 
-  const filtered = stockItems.filter(i => {
+  const filtered = (stockItems || []).filter(i => {
     const matchesUnit = catFilter === "All categories" || i.unit?.unit_name === catFilter
     const matchesSearch = i.item_name?.toLowerCase().includes(search.toLowerCase())
     const matchesType = typeFilter === "all" || (i.stock_type || "both") === typeFilter
@@ -72,8 +72,8 @@ export default function Stock() {
     return matchesUnit && matchesSearch && matchesType && matchesLow
   })
 
-  const lowStockCount = lowStock.length || stockItems.filter(i => i.min_level != null && Number(i.quantity) < Number(i.min_level)).length
-  const unitNames = [...new Set(stockItems.map(i => i.unit?.unit_name).filter(Boolean))]
+  const lowStockCount = (lowStock || []).length || (stockItems || []).filter(i => i.min_level != null && Number(i.quantity) < Number(i.min_level)).length
+  const unitNames = [...new Set((stockItems || []).map(i => i.unit?.unit_name).filter(Boolean))]
 
   const handleImageSelect = (file) => {
     setImageFile(file)
