@@ -31,6 +31,14 @@ app.use(cors({
   credentials: true,
 }));
 
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "Zoom RMS Backend API is running" });
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", uptime: process.uptime() });
+});
+
 app.use("/api/auth",            authRoutes);
 app.use("/api/users",           userRoutes);
 app.use("/api/guest-sessions",  guestSessionRoutes);
