@@ -1,8 +1,8 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui"
-import { Users, AlertTriangle } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Button } from "@/components/ui"
+import { Users, AlertTriangle, Printer } from "lucide-react"
 import { cn, menuItemName } from "@/lib/utils"
 import { isAllergyNote } from "@/lib/noteTags"
-import { orderTotal } from "./orderHelpers"
+import { orderTotal, printOrderReceipt } from "./orderHelpers"
 import { useLang } from "@/i18n/LanguageContext"
 
 export default function ViewOrderDialog({ order, onClose }) {
@@ -49,6 +49,16 @@ export default function ViewOrderDialog({ order, onClose }) {
               <div className="border-t border-[var(--color-border)] pt-2 flex justify-between font-bold text-[var(--color-primary)]">
                 <span>{t("common.total")}</span>
                 <span>${orderTotal(order).toFixed(2)}</span>
+              </div>
+
+              <div className="pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => printOrderReceipt(order)}
+                  className="w-full gap-2 border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-primary-muted)] hover:text-[var(--color-primary)]"
+                >
+                  <Printer size={14} /> {t("cashier.printReceipt")}
+                </Button>
               </div>
             </div>
           </>

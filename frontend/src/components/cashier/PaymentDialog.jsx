@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react"
-import { Check, Bell, QrCode, Loader2, X, CreditCard } from "lucide-react"
+import { Check, Bell, QrCode, Loader2, X, CreditCard, Printer } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import { cn, menuItemName } from "@/lib/utils"
 import { usePaymentStore } from "../../context/paymentContext"
 import api from "../../services/axios"
-import { orderTotal, KHR_RATE } from "./orderHelpers"
+import { orderTotal, KHR_RATE, printOrderReceipt } from "./orderHelpers"
 import { useLang } from "@/i18n/LanguageContext"
 
 export default function PaymentDialog({ order, paymentMethods = [], unconfirmedCount = 0, onClose, onPaid }) {
@@ -130,7 +130,7 @@ export default function PaymentDialog({ order, paymentMethods = [], unconfirmedC
     }
   }
 
-  const confirmPay = async () => {
+  const confirmPay = async (shouldPrint = false) => {
     if (!payMethodId) {
       setErrorMsg("Please select a payment method.")
       return
@@ -139,6 +139,13 @@ export default function PaymentDialog({ order, paymentMethods = [], unconfirmedC
     setErrorMsg("")
     try {
       await createPayment({ order_id: order.order_id, method_id: payMethodId })
+      if (shouldPrint) {
+        printOrderReceipt({
+          ...order,
+          status: "Paid",
+          payments: [{ method: selectedMethod || { method_name: "Cash" } }]
+        })
+      }
       onPaid?.()
       onClose()
     } catch (err) {
@@ -161,7 +168,7 @@ export default function PaymentDialog({ order, paymentMethods = [], unconfirmedC
       onPaid?.()
       stopKhqrPolling()
       setKhqrPaid(true)
-      setTimeout(() => handleClose(), 2500)
+      setTimeout(() => handleClose(), 5000)
     } catch (err) {
       setKhqrError(err?.response?.data?.message || "Failed to confirm payment.")
     } finally {
@@ -354,27 +361,44 @@ export default function PaymentDialog({ order, paymentMethods = [], unconfirmedC
               )}
 
               {khqrPaid && (
-                <div className="text-center space-y-2 py-6">
+                <div className="text-center space-y-3 py-6">
                   <div className="w-16 h-16 rounded-full bg-[var(--color-primary-muted)] flex items-center justify-center mx-auto">
                     <Check size={32} className="text-[var(--color-primary)]" />
                   </div>
                   <div className="font-bold text-lg text-[var(--color-primary)]">{t("pay.confirmed")}</div>
                   <div className="text-xs text-[var(--color-muted)]">{t("pay.markedPaid")}</div>
+                  <div className="pt-2 flex gap-2 justify-center">
+                    <button
+                      onClick={() => printOrderReceipt({ ...order, status: "Paid", payments: [{ method: khqrMethod || { method_name: "KHQR" } }] })}
+                      className="px-4 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-[var(--color-primary-dark)] transition-colors cursor-pointer"
+                    >
+                      <Printer size={14} /> {t("cashier.printReceipt")}
+                    </button>
+                    <button
+                      onClick={handleClose}
+                      className="px-4 py-2.5 rounded-xl border border-[var(--color-border)] text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-muted)] transition-colors cursor-pointer"
+                    >
+                      {t("common.close")}
+                    </button>
+                  </div>
                 </div>
               )}
             </>
           )}
         </div>
 
-        {}
+        {/* Footer actions */}
         {!khqrPaid && (
           <div className="px-5 py-3.5 border-t border-[var(--color-border)] shrink-0">
             {payMode === "normal" ? (
               <div className="flex gap-2">
-                <button onClick={handleClose} disabled={paying} className="flex-1 py-3 rounded-2xl border border-[var(--color-border)] text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-muted)] transition-colors disabled:opacity-60 min-h-[48px]">{t("common.cancel")}</button>
-                <button onClick={confirmPay} disabled={paying} className="flex-[2] py-3 rounded-2xl bg-[var(--color-primary)] text-white text-sm font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-2 disabled:opacity-60 min-h-[48px]">
+                <button onClick={handleClose} disabled={paying} className="flex-1 py-3 rounded-2xl border border-[var(--color-border)] text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-muted)] transition-colors disabled:opacity-60 min-h-[48px] cursor-pointer">{t("common.cancel")}</button>
+                <button onClick={() => confirmPay(false)} disabled={paying} className="flex-[1.2] py-3 rounded-2xl border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-muted)] text-sm font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 min-h-[48px] cursor-pointer">
                   {paying ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                   {paying ? t("pay.processing") : `${t("pay.charge")} $${total.toFixed(2)}`}
+                </button>
+                <button onClick={() => confirmPay(true)} disabled={paying} className="flex-[1.3] py-3 rounded-2xl bg-[var(--color-primary)] text-white text-sm font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 min-h-[48px] cursor-pointer">
+                  <Printer size={15} /> Pay &amp; Print
                 </button>
               </div>
             ) : !khqrData ? (
