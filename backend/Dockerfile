@@ -8,6 +8,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=8080
+# Placeholder for build time (real DATABASE_URL is injected by Fly.io at runtime via secrets)
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/db"
 
 # Copy package manifests
 COPY package*.json ./
