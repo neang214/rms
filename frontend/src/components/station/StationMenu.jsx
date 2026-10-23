@@ -68,7 +68,7 @@ export default function StationMenu({ config }) {
                 !item.available && "opacity-60"
               )}
             >
-              <div className="relative h-32 overflow-hidden bg-[var(--color-border)]/40 shrink-0">
+              <div className="relative aspect-[5/4] overflow-hidden bg-[var(--color-border)]/40 shrink-0">
                 <img
                   src={imageUrl(item.image_url, config.fallbackImg)}
                   alt={menuItemName(item, lang)}

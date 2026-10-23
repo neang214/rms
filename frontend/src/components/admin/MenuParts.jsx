@@ -25,7 +25,7 @@ export function ImagePicker({ preview, onSelect, onClear }) {
         }}
       />
       {preview ? (
-        <div className="relative h-40 rounded-xl overflow-hidden border border-[var(--color-border)] group">
+        <div className="relative aspect-[5/4] max-w-xs mx-auto rounded-xl overflow-hidden border border-[var(--color-border)] group">
           <img src={preview} alt="preview" className="w-full h-full object-cover" />
           <button type="button" onClick={onClear}
             className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition-colors">
@@ -38,10 +38,10 @@ export function ImagePicker({ preview, onSelect, onClear }) {
         </div>
       ) : (
         <button type="button" onClick={() => inputRef.current?.click()}
-          className="w-full h-40 rounded-xl border-2 border-dashed border-[var(--color-border)] hover:border-[var(--color-primary)] flex flex-col items-center justify-center gap-2 text-[var(--color-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-muted)]/40 transition-all">
+          className="w-full aspect-[5/4] max-w-xs mx-auto rounded-xl border-2 border-dashed border-[var(--color-border)] hover:border-[var(--color-primary)] flex flex-col items-center justify-center gap-2 text-[var(--color-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-muted)]/40 transition-all">
           <ImagePlus size={24} />
           <span className="text-xs font-medium">Click to upload a photo</span>
-          <span className="text-[10px] text-[var(--color-muted)]">PNG or JPG</span>
+          <span className="text-[10px] text-[var(--color-muted)]">PNG or JPG (5:4 recommended)</span>
         </button>
       )}
     </div>
@@ -110,7 +110,7 @@ export function MenuGrid({ items, isLoading, categoryName, onEdit, onDelete }) {
             !item.available && "opacity-65"
           )}
         >
-          <div className="relative h-36 overflow-hidden bg-[var(--color-border)]/40 shrink-0">
+          <div className="relative aspect-[5/4] overflow-hidden bg-[var(--color-border)]/40 shrink-0">
             <img
               src={imageUrl(item.image_url, FALLBACK_IMG)}
               alt={menuItemName(item, lang)}
