@@ -25,7 +25,7 @@ router.post(
 
 router.patch("/:id/details", guestOrderLimit, requireGuestSession, orderController.updateOrderDetails);
 router.get("/session/active", requireGuestSession, orderController.getActiveOrderBySession);
-router.get("/table/:tableId", authenticate, authorize("admin", "cashier", "server"), orderController.getActiveOrderByTable);
+router.get("/table/:tableId", authenticate, authorize("admin", "cashier"), orderController.getActiveOrderByTable);
 
 router.get(
   "/history",
@@ -37,38 +37,38 @@ router.get(
 router.get(
   "/unconfirmed",
   authenticate,
-  authorize("cashier", "admin", "server"),
+  authorize("cashier", "admin"),
   orderController.getUnconfirmedOrders,
 );
 
 router.get(
   "/",
   authenticate,
-  authorize("cashier", "admin", "server"),
+  authorize("cashier", "admin"),
   orderController.getAllOrders,
 );
 router.get(
   "/:id",
   authenticate,
-  authorize("cashier", "admin", "server"),
+  authorize("cashier", "admin"),
   orderController.getOrderById,
 );
 router.patch(
   "/:id/status",
   authenticate,
-  authorize("cashier", "server"),
+  authorize("cashier"),
   orderController.updateOrderStatus,
 );
 router.patch(
   "/:id/confirm",
   authenticate,
-  authorize("cashier", "admin", "server"),
+  authorize("cashier", "admin"),
   orderController.confirmOrder,
 );
 router.delete(
   "/:id",
   authenticate,
-  authorize("cashier", "admin", "server"),
+  authorize("cashier", "admin"),
   orderController.deleteOrder,
 );
 

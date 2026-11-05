@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react"
 import { useSocketRole, useSocketEvent } from "../services/socket"
-import { useOrderStore } from "../context/orderContext"
 import { useOrderItemStore } from "../context/orderItemContext"
 
 let sharedAudioCtx = null
@@ -96,7 +95,6 @@ export function useStaffNotifications(role) {
   const { connected } = useSocketRole(role)
   const [bellRinging, setBellRinging] = useState(false)
 
-  const { unconfirmedOrders, fetchUnconfirmedOrders } = useOrderStore()
   const { kitchenQueue, baristaQueue, fetchKitchenQueue, fetchBaristaQueue } = useOrderItemStore()
 
   const ring = useCallback(() => {
@@ -106,8 +104,7 @@ export function useStaffNotifications(role) {
   }, [])
 
   useSocketEvent("order:new", () => {
-    if (role === "cashier" || role === "admin" || role === "server") {
-      fetchUnconfirmedOrders()
+    if (role === "cashier" || role === "admin") {
       ring()
     }
     if (role === "kitchen") {
@@ -121,7 +118,6 @@ export function useStaffNotifications(role) {
   })
 
   useSocketEvent("order:confirmed", () => {
-    if (role === "cashier" || role === "admin") fetchUnconfirmedOrders()
     if (role === "kitchen") {
       fetchKitchenQueue()
       ring()
@@ -133,14 +129,12 @@ export function useStaffNotifications(role) {
   })
 
   useSocketEvent("order:deleted", () => {
-    if (role === "cashier" || role === "admin") fetchUnconfirmedOrders()
     if (role === "kitchen") fetchKitchenQueue()
     if (role === "barista") fetchBaristaQueue()
   })
 
   useSocketEvent("order_item:new", () => {
-    if (role === "cashier" || role === "admin" || role === "server") {
-      fetchUnconfirmedOrders()
+    if (role === "cashier" || role === "admin") {
       ring()
     }
     if (role === "kitchen") {
@@ -156,24 +150,22 @@ export function useStaffNotifications(role) {
   useSocketEvent("order_item:status_changed", (item) => {
     if (role === "kitchen") fetchKitchenQueue()
     if (role === "barista") fetchBaristaQueue()
-    if (item?.status === "Ready" && (role === "cashier" || role === "server" || role === "admin")) {
+    if (item?.status === "Ready" && (role === "cashier" || role === "admin")) {
       ring()
     }
   })
 
   useSocketEvent("order:status_changed", (order) => {
-    if (order?.status === "Served" && (role === "cashier" || role === "server" || role === "admin")) {
+    if (order?.status === "Served" && (role === "cashier" || role === "admin")) {
       ring()
     }
   })
 
   let count = 0
-  if (role === "cashier" || role === "admin" || role === "server") count = unconfirmedOrders.length
   if (role === "kitchen") count = kitchenQueue.filter(i => i.status === "Pending").length
   if (role === "barista") count = baristaQueue.filter(i => i.status === "Pending").length
 
   const refresh = useCallback(() => {
-    if (role === "cashier" || role === "admin" || role === "server") fetchUnconfirmedOrders()
     if (role === "kitchen") fetchKitchenQueue()
     if (role === "barista") fetchBaristaQueue()
   }, [role])

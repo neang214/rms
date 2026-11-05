@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom"
 import { ThemeProvider } from "next-themes"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { authContext } from "./context/authContext"
 import Layout from "./components/Layout"
 import Login from "./pages/Login"
@@ -20,9 +20,6 @@ import CashierMenu from "./pages/cashier/CashierMenu"
 import CashierOrders from "./pages/cashier/CashierOrders"
 import CashierHistory from "./pages/cashier/CashierHistory"
 
-import ServerMenu from "./pages/server/ServerMenu"
-import ServerOrders from "./pages/server/ServerOrders"
-
 import BaristaMenu from "./pages/barista/BaristaMenu"
 import BaristaOrders from "./pages/barista/BaristaOrders"
 import BaristaStock from "./pages/barista/BaristaStock"
@@ -36,20 +33,18 @@ import GuestOrder from "./pages/guest/GuestOrder"
 import GuestOrderStatus from "./pages/guest/GuestOrderStatus"
 
 const roleHome = {
-  admin:   "/admin",
+  admin: "/admin",
   cashier: "/cashier/menu",
   kitchen: "/kitchen/menu",
   barista: "/barista/menu",
-  server:  "/server/menu",
 }
 
 function isAllowed(role, pathname) {
   const prefixMap = {
-    admin:   "/admin",
+    admin: "/admin",
     cashier: "/cashier",
     kitchen: "/kitchen",
     barista: "/barista",
-    server:  "/server",
   }
   const prefix = prefixMap[role]
   if (!prefix) return false
@@ -81,12 +76,13 @@ function ProtectedRoute({ role, allowedRoles, children }) {
 
 function StaffApp() {
   const { user, isLoading, checkAuth } = authContext()
+  const [initializing, setInitializing] = useState(true)
 
   useEffect(() => {
-    checkAuth()
+    Promise.resolve(checkAuth()).finally(() => setInitializing(false))
   }, [checkAuth])
 
-  if (isLoading) {
+  if (initializing) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center gap-4 bg-[var(--color-background)]">
         <div className="border-2 border-[var(--color-primary)] rounded-xl px-6 py-4 text-center">
@@ -109,9 +105,10 @@ function StaffApp() {
       <RoleRedirector />
       <Routes>
 
-        {}
+        { }
         <Route path="/admin" element={<ProtectedRoute role={role} allowedRoles={["admin"]}><Dashboard /></ProtectedRoute>} />
         <Route path="/admin/menu" element={<ProtectedRoute role={role} allowedRoles={["admin"]}><Menu /></ProtectedRoute>} />
+        <Route path="/admin/menus" element={<ProtectedRoute role={role} allowedRoles={["admin"]}><Menu /></ProtectedRoute>} />
         <Route path="/admin/stock" element={<ProtectedRoute role={role} allowedRoles={["admin"]}><Stock /></ProtectedRoute>} />
         <Route path="/admin/tables" element={<ProtectedRoute role={role} allowedRoles={["admin"]}><Tables /></ProtectedRoute>} />
         <Route path="/admin/payments" element={<ProtectedRoute role={role} allowedRoles={["admin"]}><Payments /></ProtectedRoute>} />
@@ -120,27 +117,23 @@ function StaffApp() {
         <Route path="/admin/users" element={<ProtectedRoute role={role} allowedRoles={["admin"]}><UserManagement /></ProtectedRoute>} />
         <Route path="/admin/history" element={<ProtectedRoute role={role} allowedRoles={["admin"]}><OrderHistory /></ProtectedRoute>} />
 
-        {}
+        { }
         <Route path="/cashier/menu" element={<ProtectedRoute role={role} allowedRoles={["cashier"]}><CashierMenu /></ProtectedRoute>} />
         <Route path="/cashier/orders" element={<ProtectedRoute role={role} allowedRoles={["cashier"]}><CashierOrders /></ProtectedRoute>} />
         <Route path="/cashier/payments" element={<ProtectedRoute role={role} allowedRoles={["cashier"]}><CashierPaymentsReport /></ProtectedRoute>} />
         <Route path="/cashier/history" element={<ProtectedRoute role={role} allowedRoles={["cashier"]}><CashierHistory /></ProtectedRoute>} />
 
-        {}
+        { }
         <Route path="/kitchen/menu" element={<ProtectedRoute role={role} allowedRoles={["kitchen"]}><KitchenMenu /></ProtectedRoute>} />
         <Route path="/kitchen/orders" element={<ProtectedRoute role={role} allowedRoles={["kitchen"]}><KitchenOrders /></ProtectedRoute>} />
         <Route path="/kitchen/stock" element={<ProtectedRoute role={role} allowedRoles={["kitchen"]}><KitchenStock /></ProtectedRoute>} />
 
-        {}
+        { }
         <Route path="/barista/menu" element={<ProtectedRoute role={role} allowedRoles={["barista"]}><BaristaMenu /></ProtectedRoute>} />
         <Route path="/barista/orders" element={<ProtectedRoute role={role} allowedRoles={["barista"]}><BaristaOrders /></ProtectedRoute>} />
         <Route path="/barista/stock" element={<ProtectedRoute role={role} allowedRoles={["barista"]}><BaristaStock /></ProtectedRoute>} />
 
-        {}
-        <Route path="/server/menu" element={<ProtectedRoute role={role} allowedRoles={["server"]}><ServerMenu /></ProtectedRoute>} />
-        <Route path="/server/orders" element={<ProtectedRoute role={role} allowedRoles={["server"]}><ServerOrders /></ProtectedRoute>} />
-
-        {}
+        { }
         <Route path="*" element={<Navigate to={roleHome[role] || "/admin"} replace />} />
 
       </Routes>
@@ -153,12 +146,12 @@ export default function App() {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <BrowserRouter>
         <Routes>
-          {}
+          { }
           <Route path="/" element={<GuestLanding />} />
           <Route path="/order" element={<GuestOrder />} />
           <Route path="/order/status" element={<GuestOrderStatus />} />
 
-          {}
+          { }
           <Route path="/*" element={<StaffApp />} />
         </Routes>
       </BrowserRouter>

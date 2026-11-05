@@ -7,7 +7,7 @@ import api from "../../services/axios"
 import { orderTotal, KHR_RATE, printOrderReceipt } from "./orderHelpers"
 import { useLang } from "@/i18n/LanguageContext"
 
-export default function PaymentDialog({ order, paymentMethods = [], unconfirmedCount = 0, onClose, onPaid }) {
+export default function PaymentDialog({ order, paymentMethods = [], onClose, onPaid }) {
   const { t, lang } = useLang()
   const { createPayment } = usePaymentStore()
 
@@ -211,13 +211,6 @@ export default function PaymentDialog({ order, paymentMethods = [], unconfirmedC
 
         {}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {unconfirmedCount > 0 && (
-            <div className="flex items-center gap-1.5 bg-[var(--color-accent-muted)] text-[var(--color-warning)] text-[11px] font-semibold px-3 py-2 rounded-xl">
-              <Bell size={13} /> {unconfirmedCount} {t("pay.needConfirm")}
-            </div>
-          )}
-
-          {}
           {hasKHQR && (
             <div className="grid grid-cols-2 gap-2 p-1 bg-[var(--color-primary-muted)]/60 rounded-2xl">
               <button onClick={() => switchMode("normal")}

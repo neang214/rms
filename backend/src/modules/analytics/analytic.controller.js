@@ -1,9 +1,34 @@
 import prisma from "../../utils/db.js";
 
+const getPhnomPenhStartOfDay = () => {
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Phnom_Penh",
+  }).format(new Date());
+  return new Date(`${todayStr}T00:00:00+07:00`);
+};
+
+const getPhnomPenhStartOfWeek = () => {
+  const now = new Date();
+  const ppDateStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Phnom_Penh",
+  }).format(now);
+  const ppDate = new Date(`${ppDateStr}T00:00:00+07:00`);
+  const day = ppDate.getDay();
+  ppDate.setDate(ppDate.getDate() - day);
+  return ppDate;
+};
+
+const getPhnomPenhStartOfMonth = () => {
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Phnom_Penh",
+  }).format(new Date());
+  const [year, month] = todayStr.split("-");
+  return new Date(`${year}-${month}-01T00:00:00+07:00`);
+};
+
 export const getDailyRevenue = async (req, res) => {
   try {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    const startOfDay = getPhnomPenhStartOfDay();
 
     const revenue = await prisma.payment.aggregate({
       _sum: { amount: true },
@@ -21,9 +46,7 @@ export const getDailyRevenue = async (req, res) => {
 
 export const getWeeklyRevenue = async (req, res) => {
   try {
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfWeek = getPhnomPenhStartOfWeek();
 
     const revenue = await prisma.payment.aggregate({
       _sum: { amount: true },
@@ -41,9 +64,7 @@ export const getWeeklyRevenue = async (req, res) => {
 
 export const getMonthlyRevenue = async (req, res) => {
   try {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    const startOfMonth = getPhnomPenhStartOfMonth();
 
     const revenue = await prisma.payment.aggregate({
       _sum: { amount: true },
@@ -55,7 +76,7 @@ export const getMonthlyRevenue = async (req, res) => {
 
     res.json({ total: revenue._sum.amount || 0 });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -69,18 +90,23 @@ export const getTopSelling = async (req, res) => {
       take: 5,
     });
 
-    const withNames = await Promise.all(
-      topSell.map(async (item) => {
-        const menuItem = await prisma.menuItem.findUnique({
-          where: { menu_item_id: item.menu_item_id },
-          select: { item_name: true },
-        });
-        return {
-          item_name: menuItem.item_name,
-          total_quantity: item._sum.quantity,
-        };
-      }),
-    );
+    const ids = topSell.map((i) => i.menu_item_id);
+    const menuItems = ids.length
+      ? await prisma.menuItem.findMany({
+          where: { menu_item_id: { in: ids } },
+          select: { menu_item_id: true, item_name: true, item_name_km: true },
+        })
+      : [];
+    const byId = new Map(menuItems.map((m) => [m.menu_item_id, m]));
+
+    const withNames = topSell.map((item) => {
+      const menuItem = byId.get(item.menu_item_id);
+      return {
+        item_name: menuItem?.item_name || `Item #${item.menu_item_id}`,
+        item_name_km: menuItem?.item_name_km || null,
+        total_quantity: item._sum.quantity,
+      };
+    });
 
     res.json(withNames);
   } catch {
@@ -92,10 +118,10 @@ export const peakHour = async (req, res) => {
   try {
     const peakHours = await prisma.$queryRaw`
       SELECT 
-        EXTRACT(HOUR FROM order_date) as hour, 
+        EXTRACT(HOUR FROM (order_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Phnom_Penh'))::INT as hour,
         CAST(COUNT(*) AS INT) as total_orders
       FROM orders
-      GROUP BY EXTRACT(HOUR FROM order_date)
+      GROUP BY 1
       ORDER BY hour ASC
     `;
     res.json(peakHours);

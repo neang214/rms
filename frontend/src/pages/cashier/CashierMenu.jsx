@@ -12,6 +12,7 @@ import CashierMenuGrid from "@/components/cashier/CashierMenuGrid"
 import CartBar from "@/components/cashier/CartBar"
 import SubmitOrderDialog from "@/components/cashier/SubmitOrderDialog"
 import { useLang } from "@/i18n/LanguageContext"
+import { menuItemMatchesSearch } from "@/lib/utils"
 
 const KHR_RATE = 4100
 
@@ -44,11 +45,8 @@ export default function CashierMenu() {
   const availableItems = items.filter(i => i.available)
   const filtered = availableItems.filter(i => {
     const matchesCat = activeCat === "All" || i.category_id === activeCat
-    
-    
-    const q = search.toLowerCase()
-    const matchesSearch = i.item_name?.toLowerCase().includes(q) || i.item_name_km?.toLowerCase().includes(q)
-    return matchesCat && matchesSearch
+    const catName = categories.find(c => c.category_id === i.category_id)?.category_name
+    return matchesCat && menuItemMatchesSearch(i, search, catName)
   })
 
   

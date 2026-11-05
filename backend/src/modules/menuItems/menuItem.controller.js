@@ -25,12 +25,7 @@ export const getItemsByCategory = async (req, res) => {
             },
         });
 
-        if (menuItems.length === 0)
-            return res
-                .status(404)
-                .json({ message: "No items found for this category" });
-
-        res.json(menuItems);
+        res.status(200).json(menuItems);
     } catch (error) {
         console.log(error);
         res.status(500).json({ message: "Internal Server Error" });

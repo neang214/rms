@@ -13,13 +13,16 @@ export const getAllOrders = async (req, res) => {
         user:  { select: { username: true, role: true } },
         order_items: {
           include: {
-            menu_item: { select: { item_name: true, price: true } },
+            menu_item: { select: { item_name: true, item_name_km: true, price: true } },
           },
         },
         
         
         
-        payments: { where: { status: "Completed" }, select: { payment_id: true } },
+        payments: {
+          where: { status: "Completed" },
+          select: { payment_id: true, method: { select: { method_name: true } } },
+        },
       },
       orderBy: { order_date: "desc" },
     });
@@ -32,6 +35,7 @@ export const getAllOrders = async (req, res) => {
     const queueNumbers = await attachQueueNumbers(orders);
     const shaped = orders.map(({ payments, ...o }) => ({
       ...o,
+      payments, // includes method.method_name for reports
       is_paid: o.status === "Paid" || (payments?.length || 0) > 0,
       queue_number: queueNumbers.get(o.order_id),
     }));
@@ -51,7 +55,7 @@ export const getOrderById = async (req, res) => {
         user:  { select: { username: true, role: true } },
         order_items: {
           include: {
-            menu_item: { select: { item_name: true, price: true } },
+            menu_item: { select: { item_name: true, item_name_km: true, price: true } },
           },
         },
         payments: true,
@@ -75,7 +79,7 @@ async function findActiveOrderForTable(table_id) {
     include: {
       order_items: {
         include: {
-          menu_item: { select: { item_name: true, price: true, image_url: true } },
+          menu_item: { select: { item_name: true, item_name_km: true, price: true, image_url: true } },
         },
       },
     },
@@ -120,7 +124,7 @@ export const getUnconfirmedOrders = async (req, res) => {
         table: { select: { table_number: true } },
         order_items: {
           include: {
-            menu_item: { select: { item_name: true, price: true } },
+            menu_item: { select: { item_name: true, item_name_km: true, price: true } },
           },
         },
       },
@@ -143,7 +147,7 @@ export const updateOrderDetails = async (req, res) => {
   try {
     const order = await prisma.order.findUnique({
       where: { order_id: parseInt(req.params.id) },
-      select: { table_id: true, confirmed: true },
+      select: { table_id: true, status: true },
     });
 
     if (!order) return res.status(404).json({ message: "Order not found" });
@@ -151,8 +155,8 @@ export const updateOrderDetails = async (req, res) => {
     if (order.table_id !== req.guestSession.table_id) {
       return res.status(403).json({ message: "This order does not belong to this table" });
     }
-    if (order.confirmed) {
-      return res.status(403).json({ message: "This order has already been confirmed" });
+    if (order.status === "Paid") {
+      return res.status(400).json({ message: "This order has already been paid" });
     }
 
     const updated = await prisma.order.update({
@@ -171,7 +175,7 @@ export const updateOrderDetails = async (req, res) => {
 };
 
 export const createOrder = async (req, res) => {
-  const { table_id, note, party_size, channel, latitude, longitude } = req.body;
+  const { table_id, note, party_size, channel, latitude, longitude, accuracy } = req.body;
 
   const isGuest = channel === "guest";
 
@@ -180,7 +184,7 @@ export const createOrder = async (req, res) => {
   }
 
   if (isGuest) {
-    const check = verifyGuestLocation(latitude, longitude);
+    const check = verifyGuestLocation(latitude, longitude, accuracy);
     if (!check.ok) return res.status(check.status).json({ message: check.message });
   }
 
@@ -221,6 +225,14 @@ export const createOrder = async (req, res) => {
         });
 
         if (existingOrder) {
+          // Another device already opened this table's order.
+          if (
+            isGuest &&
+            existingOrder.session_id &&
+            existingOrder.session_id !== req.guestSession.session_id
+          ) {
+            throw new Error("TABLE_LOCKED_BY_OTHER_DEVICE");
+          }
           const err = new Error("TABLE_HAS_ACTIVE_ORDER");
           err.order_id = existingOrder.order_id;
           throw err;
@@ -230,9 +242,10 @@ export const createOrder = async (req, res) => {
           data: {
             table_id:  table.table_id,
             user_id:   req.user?.userId ?? null,
+            session_id: isGuest ? req.guestSession.session_id : null,
             note:      note ? String(note).slice(0, 1000) : null,
             party_size: party_size ? parseInt(party_size) : null,
-            confirmed: !isGuest,
+            confirmed: true,
           },
           include: {
             table: { select: { table_number: true } },
@@ -247,6 +260,11 @@ export const createOrder = async (req, res) => {
         return newOrder;
       });
     } catch (err) {
+      if (err.message === "TABLE_LOCKED_BY_OTHER_DEVICE") {
+        return res.status(403).json({
+          message: "This table is currently in use by another guest's device.",
+        });
+      }
       if (err.message === "TABLE_HAS_ACTIVE_ORDER") {
         return res.status(400).json({
           message: "Table already has an active order",
@@ -263,10 +281,10 @@ export const createOrder = async (req, res) => {
     }
 
     const io = getIO();
-    io.to("role:cashier").to("role:server").to("role:admin").emit("order:new", order);
+    io.to("role:cashier").to("role:admin").emit("order:new", order);
     io.to(`table:${order.table_id}`).emit("order:new", order);
 
-    io.to("role:admin").to("role:cashier").to("role:server").emit("table:updated", {
+    io.to("role:admin").to("role:cashier").emit("table:updated", {
       table_id: order.table_id,
       is_available: false,
     });
@@ -288,17 +306,14 @@ export const confirmOrder = async (req, res) => {
       include: {
         table: { select: { table_number: true } },
         order_items: {
-          include: { menu_item: { select: { item_name: true, category: { select: { type: true } } } } },
+          include: { menu_item: { select: { item_name: true, item_name_km: true, category: { select: { type: true } } } } },
         },
       },
     });
 
     const io = getIO();
-    io.to("role:cashier").to("role:server").to("role:admin").emit("order:confirmed", order);
+    io.to("role:cashier").to("role:admin").emit("order:confirmed", order);
 
-    
-    
-    
     const hasFood  = order.order_items.some(oi => oi.menu_item?.category?.type === "food");
     const hasDrink = order.order_items.some(oi => oi.menu_item?.category?.type === "drink");
     if (hasFood)  io.to("role:kitchen").emit("order:new", order);
@@ -330,7 +345,7 @@ export const updateOrderStatus = async (req, res) => {
     });
 
     const io = getIO();
-    io.to("role:cashier").to("role:kitchen").to("role:barista").to("role:admin").to("role:server")
+    io.to("role:cashier").to("role:kitchen").to("role:barista").to("role:admin")
       .emit("order:status_changed", order);
     io.to(`table:${order.table_id}`).emit("order:status_changed", order);
 
@@ -374,11 +389,11 @@ export const deleteOrder = async (req, res) => {
     });
 
     const io = getIO();
-    io.to("role:cashier").to("role:kitchen").to("role:barista").to("role:admin").to("role:server")
+    io.to("role:cashier").to("role:kitchen").to("role:barista").to("role:admin")
       .emit("order:deleted", { order_id: order.order_id, table_id: order.table_id });
     io.to(`table:${order.table_id}`).emit("order:deleted", { order_id: order.order_id });
     
-    io.to("role:admin").to("role:cashier").to("role:server").emit("table:updated", {
+    io.to("role:admin").to("role:cashier").emit("table:updated", {
       table_id: order.table_id,
       is_available: true,
     });
@@ -392,11 +407,47 @@ export const deleteOrder = async (req, res) => {
 
 export const getOrderHistory = async (req, res) => {
   try {
-    const dateStr = req.query.date || new Date().toISOString().split("T")[0];
-    const start = new Date(`${dateStr}T00:00:00.000Z`);
-    const end   = new Date(`${dateStr}T23:59:59.999Z`);
+    const todayLocal = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Phnom_Penh" }).format(new Date());
 
-    
+    const mode = req.query.mode || (
+      req.query.toNow === "true" || req.query.to_now === "true"
+        ? "toNow"
+        : (req.query.startDate || req.query.start_date || req.query.endDate || req.query.end_date)
+          ? "range"
+          : "single"
+    );
+
+    let start;
+    let end;
+    let startDateStr = req.query.startDate || req.query.start_date;
+    let endDateStr = req.query.endDate || req.query.end_date;
+    const dateStr = req.query.date || todayLocal;
+
+    if (mode === "toNow") {
+      startDateStr = startDateStr || dateStr;
+      endDateStr = todayLocal;
+      start = new Date(`${startDateStr}T00:00:00+07:00`);
+      // Up to right now
+      end = new Date();
+    } else if (mode === "range") {
+      startDateStr = startDateStr || dateStr;
+      endDateStr = endDateStr || startDateStr;
+      // Ensure start <= end
+      if (startDateStr > endDateStr) {
+        const tmp = startDateStr;
+        startDateStr = endDateStr;
+        endDateStr = tmp;
+      }
+      start = new Date(`${startDateStr}T00:00:00+07:00`);
+      end = new Date(`${endDateStr}T23:59:59.999+07:00`);
+    } else {
+      // Single day mode
+      startDateStr = dateStr;
+      endDateStr = dateStr;
+      start = new Date(`${dateStr}T00:00:00+07:00`);
+      end = new Date(`${dateStr}T23:59:59.999+07:00`);
+    }
+
     const tableId = req.query.table_id ? parseInt(req.query.table_id) : null;
 
     const orders = await prisma.order.findMany({
@@ -412,6 +463,7 @@ export const getOrderHistory = async (req, res) => {
             menu_item: {
               select: {
                 item_name: true,
+                item_name_km: true,
                 price: true,
                 category: { select: { category_name: true, type: true } },
               },
@@ -427,22 +479,27 @@ export const getOrderHistory = async (req, res) => {
       orderBy: { order_date: "desc" },
     });
 
-    
-    
     const totalRevenue = orders
       .filter(o => o.status === "Paid")
       .reduce((sum, o) => {
         return sum + o.order_items.reduce((s, oi) => s + Number(oi.unit_price) * oi.quantity, 0);
       }, 0);
 
+    const paidOrders = orders.filter(o => o.status === "Paid");
+    const avgOrderValue = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
+
     res.json({
-      date: dateStr,
+      mode,
+      date: startDateStr,
+      start_date: startDateStr,
+      end_date: endDateStr,
       table_id: tableId,
       orders,
       summary: {
         total_orders: orders.length,
-        paid_orders: orders.filter(o => o.status === "Paid").length,
+        paid_orders: paidOrders.length,
         total_revenue: totalRevenue.toFixed(2),
+        avg_order_value: avgOrderValue.toFixed(2),
       },
     });
   } catch (error) {

@@ -91,14 +91,15 @@ export const updateStock = async (req, res) => {
 };
 
 export const addStockQuantity = async (req, res) => {
-    const quantity = parseInt(req.body.quantity);
-    if (isNaN(quantity))
-        return res.status(400).json({ message: "Invalid quantity" });
+    const quantity = parseFloat(req.body.quantity);
+    if (isNaN(quantity) || quantity <= 0)
+        return res.status(400).json({ message: "Quantity must be a positive number" });
 
     try {
         const updatedStock = await prisma.stock.update({
             where: { stock_id: parseInt(req.params.id) },
             data: { quantity: { increment: quantity } },
+            include: { unit: true },
         });
 
         res.status(200).json(updatedStock);

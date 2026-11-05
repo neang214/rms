@@ -14,6 +14,7 @@ import {
 import { useLang } from "@/i18n/LanguageContext"
 import { getCurrentPosition, isMobileDevice } from "@/lib/geolocation"
 import { LocationGate } from "@/components/guest/GuestOrderParts"
+import { menuItemMatchesSearch } from "@/lib/utils"
 
 const KHR_RATE = 4100
 
@@ -53,7 +54,8 @@ export default function GuestOrder() {
     setGeoStatus("checking")
     setGeoError(null)
 
-    if (!isMobileDevice()) {
+    const isDevOrBypass = import.meta.env.DEV || import.meta.env.VITE_ENFORCE_MOBILE_QR === "false"
+    if (!isMobileDevice() && !isDevOrBypass) {
       setGeoError("DESKTOP")
       setGeoStatus("blocked")
       return
@@ -91,7 +93,7 @@ export default function GuestOrder() {
           try {
             const existing = await getActiveOrderBySession()
             if (existing) setLiveOrderStatus(existing.status)
-          } catch {}
+          } catch { }
         })
         .catch(() => setTableError(true))
         .finally(() => setLoadingTable(false))
@@ -115,9 +117,8 @@ export default function GuestOrder() {
   const availableItems = items.filter(i => i.available)
   const filtered = availableItems.filter(i => {
     const matchesCat = activeCat === "All" || i.category_id === activeCat
-    const q = search.toLowerCase()
-    const matchesSearch = i.item_name?.toLowerCase().includes(q) || i.item_name_km?.toLowerCase().includes(q)
-    return matchesCat && matchesSearch
+    const catName = categories.find(c => c.category_id === i.category_id)?.category_name
+    return matchesCat && menuItemMatchesSearch(i, search, catName)
   })
 
   const addToCart = (id) => setCart(c => ({ ...c, [id]: { qty: (c[id]?.qty || 0) + 1, note: c[id]?.note || "" } }))
@@ -152,7 +153,7 @@ export default function GuestOrder() {
         if (partySize || note) {
           try {
             await updateOrderDetails(orderId, { party_size: partySize || undefined, note: note || undefined })
-          } catch {}
+          } catch { }
         }
       } else {
         try {
@@ -202,18 +203,18 @@ export default function GuestOrder() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[var(--color-background)] pb-24">
+    <div className="min-h-screen w-full bg-[var(--color-background)] pb-28">
       <GuestHeader table={table} token={token} navigate={navigate} />
 
       <OrderStatusBanner liveOrderStatus={liveOrderStatus} token={token} navigate={navigate} />
 
-      <div className="p-4 space-y-4">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5">
         <GuestMenuControls
           search={search} setSearch={setSearch}
           categories={categories} activeCat={activeCat} setActiveCat={setActiveCat}
         />
         <GuestMenuGrid items={filtered} cart={cart} onAdd={addToCart} onRemove={removeFromCart} />
-      </div>
+      </main>
 
       <CartBar total={total} totalKHR={totalKHR} cartCount={cartCount}
         onOrder={() => { setConfirmOpen(true); setErrorMsg("") }} />

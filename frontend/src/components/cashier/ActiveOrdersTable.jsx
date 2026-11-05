@@ -27,7 +27,7 @@ function OrderRow({ order, onPay, onView }) {
           </span>
         )}
       </td>
-      <td className="py-3 px-3 text-sm text-[var(--color-muted)]">{itemCount} item{itemCount !== 1 ? "s" : ""}</td>
+      <td className="py-3 px-3 text-sm text-[var(--color-muted)]">{itemCount} {t("station.items")}</td>
       <td className="py-3 px-3">
         <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full", cfg.color)}>{t(cfg.labelKey)}</span>
       </td>

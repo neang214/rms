@@ -105,29 +105,38 @@ export const checkKHQR = async (req, res) => {
     const bakongRes = await checkBakongMD5(md5, token);
     if (!bakongRes.paid) return res.json({ paid: false });
 
-    const order = await prisma.order.findUnique({
-      where: { order_id: parsedOrderId },
-      include: {
-        order_items: true,
-        payments: { where: { status: "Completed" } },
-      },
-    });
-
-    if (!order) return res.status(404).json({ message: "Order not found" });
-    if (order.payments.length > 0 || order.status === "Paid")
-      return res.json({ paid: true, already_processed: true });
-
-    const totalAmount = order.order_items.reduce(
-      (sum, item) => sum + item.quantity * Number(item.unit_price), 0
-    );
-
     let khqrMethod = await prisma.paymentMethod.findFirst({ where: { method_name: "KHQR" } });
     if (!khqrMethod)
       khqrMethod = await prisma.paymentMethod.create({ data: { method_name: "KHQR" } });
 
     const cashier = await prisma.user.findFirst({ where: { role: { in: ["cashier", "admin"] } } });
 
-    const payment = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
+      // Serialize concurrent payment attempts for this order
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${parsedOrderId})`;
+
+      const order = await tx.order.findUnique({
+        where: { order_id: parsedOrderId },
+        include: {
+          order_items: true,
+          payments: { where: { status: "Completed" } },
+        },
+      });
+
+      if (!order) {
+        const err = new Error("ORDER_NOT_FOUND");
+        err.statusCode = 404;
+        throw err;
+      }
+
+      if (order.payments.length > 0 || order.status === "Paid") {
+        return { already_processed: true, order };
+      }
+
+      const totalAmount = order.order_items.reduce(
+        (sum, item) => sum + item.quantity * Number(item.unit_price), 0
+      );
+
       const createdPayment = await tx.payment.create({
         data: {
           order_id: parsedOrderId,
@@ -135,30 +144,39 @@ export const checkKHQR = async (req, res) => {
           user_id: req.user?.userId || cashier?.user_id || 1,
           amount: totalAmount,
           status: "Completed",
+          external_ref: md5 ? String(md5).slice(0, 100) : null,
         },
       });
+
       await tx.order.update({ where: { order_id: parsedOrderId }, data: { status: "Paid" } });
       if (order.table_id)
         await tx.table.update({ where: { table_id: order.table_id }, data: { is_available: true } });
 
-      return createdPayment;
+      return { payment: createdPayment, order };
     });
 
-    const io = getIO();
-    io.to("role:cashier").to("role:admin").to("role:server")
-      .emit("payment:completed", { order_id: parsedOrderId, payment });
-    io.to("role:cashier").to("role:admin").to("role:server")
-      .emit("order:status_changed", { order_id: parsedOrderId, table_id: order.table_id, status: "Paid" });
-    io.to(`table:${order.table_id}`)
-      .emit("order:status_changed", { order_id: parsedOrderId, table_id: order.table_id, status: "Paid" });
+    if (result.already_processed) {
+      return res.json({ paid: true, already_processed: true });
+    }
 
-    if (order.table_id) {
-      io.to("role:admin").to("role:cashier").to("role:server")
-        .emit("table:updated", { table_id: order.table_id, is_available: true });
+    const io = getIO();
+    io.to("role:cashier").to("role:admin")
+      .emit("payment:completed", { order_id: parsedOrderId, payment: result.payment });
+    io.to("role:cashier").to("role:admin")
+      .emit("order:status_changed", { order_id: parsedOrderId, table_id: result.order.table_id, status: "Paid" });
+    io.to(`table:${result.order.table_id}`)
+      .emit("order:status_changed", { order_id: parsedOrderId, table_id: result.order.table_id, status: "Paid" });
+
+    if (result.order.table_id) {
+      io.to("role:admin").to("role:cashier")
+        .emit("table:updated", { table_id: result.order.table_id, is_available: true });
     }
 
     res.json({ paid: true, order_id: parsedOrderId });
   } catch (error) {
+    if (error.statusCode === 404) return res.status(404).json({ message: "Order not found" });
+    if (error.code === "P2002") // duplicate external_ref
+      return res.json({ paid: true, already_processed: true });
     console.error("[KHQR] checkKHQR error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }

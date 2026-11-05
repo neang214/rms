@@ -1,20 +1,38 @@
 import { Server } from "socket.io";
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://zoom-rms.vercel.app",
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(",").map(s => s.trim()) : []),
+  ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(",").map(s => s.trim()) : [])
+];
+
+export const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (
+    allowedOrigins.includes(origin) ||
+    /\.vercel\.app$/.test(origin) ||
+    /\.onrender\.com$/.test(origin)
+  ) return true;
+  if (process.env.NODE_ENV !== "production") {
+    if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
+      return true;
+    }
+    if (/^https?:\/\/.*\.ngrok(-free)?\.(app|dev)$/.test(origin)) {
+      return true;
+    }
+  }
+  return false;
+};
+
 let io = null;
 
 export function initSocket(httpServer) {
   io = new Server(httpServer, {
     cors: {
       origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        if (
-          origin === "http://localhost:5173" ||
-          origin === "https://zoom-rms.vercel.app" ||
-          /\.vercel\.app$/.test(origin) ||
-          (process.env.CLIENT_URL && process.env.CLIENT_URL.includes(origin))
-        ) {
-          return callback(null, true);
-        }
+        if (isAllowedOrigin(origin)) return callback(null, true);
         return callback(new Error(`Socket CORS blocked for origin: ${origin}`));
       },
       credentials: true,
@@ -23,7 +41,7 @@ export function initSocket(httpServer) {
 
   io.on("connection", (socket) => {
     socket.on("join_role", (role) => {
-      const validRoles = ["kitchen", "barista", "cashier", "admin", "server"];
+      const validRoles = ["kitchen", "barista", "cashier", "admin"];
       if (validRoles.includes(role)) {
         socket.join(`role:${role}`);
       }

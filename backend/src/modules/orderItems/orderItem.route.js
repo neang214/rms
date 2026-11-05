@@ -30,7 +30,7 @@ router.get(
 router.get(
   "/:orderId",
   authenticate,
-  authorize("cashier", "admin", "server"),
+  authorize("cashier", "admin"),
   orderItemController.getItemsByOrder,
 );
 router.patch(
@@ -42,13 +42,13 @@ router.patch(
 router.patch(
   "/:id/note",
   authenticate,
-  authorize("cashier", "admin", "server"),
+  authorize("cashier", "admin"),
   orderItemController.updateItemNote,
 );
 router.delete(
   "/:id",
   authenticate,
-  authorize("cashier", "admin", "server"),
+  authorize("cashier", "admin"),
   orderItemController.deleteItem,
 );
 

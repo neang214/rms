@@ -96,6 +96,8 @@ export const updateUser = async (req, res) => {
   } catch (error) {
     if (error.code === "P2025")
       return res.status(404).json({ message: "User not found" });
+    if (error.code === "P2002")
+      return res.status(409).json({ message: "Username or email already exists" });
     res
       .status(500)
       .json({ message: "Internal server error", error: error.message });

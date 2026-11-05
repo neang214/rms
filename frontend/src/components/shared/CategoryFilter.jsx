@@ -1,6 +1,8 @@
-import { cn } from "@/lib/utils"
+import { cn, categoryDisplayName } from "@/lib/utils"
+import { useLang } from "@/i18n/LanguageContext"
 
 export default function CategoryFilter({ categories, active, onChange, toggle = false, size = "sm", variant = "cashier" }) {
+  const { t, lang } = useLang()
   const pad = size === "md" ? "px-4" : "px-3"
   
   const inactive = variant === "surface"
@@ -14,14 +16,16 @@ export default function CategoryFilter({ categories, active, onChange, toggle = 
 
   return (
     <div className="flex gap-2 flex-wrap">
-      <button onClick={() => onChange("All")} className={pill(active === "All")}>All</button>
+      <button onClick={() => onChange("All")} className={pill(active === "All")}>
+        {t("common.all")}
+      </button>
       {categories.map(cat => (
         <button
           key={cat.category_id}
           onClick={() => onChange(toggle && active === cat.category_id ? "All" : cat.category_id)}
           className={pill(active === cat.category_id)}
         >
-          {cat.category_name}
+          {categoryDisplayName(cat, lang)}
         </button>
       ))}
     </div>

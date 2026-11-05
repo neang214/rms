@@ -8,6 +8,7 @@ export const getAllPurchaseOrders = async (req, res) => {
                 supplier: { select: { supplier_name: true } },
                 user: { select: { username: true } },
             },
+            orderBy: { stock_order_id: "desc" },
         });
         res.status(200).json(purchaseOrders);
     } catch {
@@ -39,13 +40,23 @@ export const createPurchase = async (req, res) => {
     }
 
     try {
+        const parsedQuantity = parseFloat(quantity);
+        if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
+            return res.status(400).json({ message: "Quantity must be a positive number" });
+        }
+
         const purchaseOrder = await prisma.stockOrder.create({
             data: {
                 invoice,
-                quantity: parseInt(quantity),
+                quantity: parsedQuantity,
                 user_id,
                 stock_id: parseInt(stock_id),
                 supplier_id: parseInt(supplier_id),
+            },
+            include: {
+                stock: { select: { item_name: true } },
+                supplier: { select: { supplier_name: true } },
+                user: { select: { username: true } },
             },
         });
         res.status(201).json(purchaseOrder);

@@ -1,11 +1,13 @@
 import { Pencil, Trash2, Phone, Mail } from "lucide-react"
 import { Button, Card, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui"
+import { useLang } from "@/i18n/LanguageContext"
 
 const colors = ["bg-[var(--color-primary-muted)] text-[var(--color-primary)]", "bg-[var(--color-info-muted)] text-[var(--color-info)]", "bg-[var(--color-flame-muted)] text-[var(--color-flame)]", "bg-[var(--color-plum-muted)] text-[var(--color-plum)]"]
 
 export function SupplierGrid({ suppliers, isLoading, onEdit, onDelete }) {
-  if (isLoading) return <div className="text-center py-16 text-[var(--color-muted)] text-sm">Loading suppliers...</div>
-  if (suppliers.length === 0) return <div className="text-center py-16 text-[var(--color-muted)] text-sm">No suppliers found.</div>
+  const { t } = useLang()
+  if (isLoading) return <div className="text-center py-16 text-[var(--color-muted)] text-sm">{t("suppliers.loading")}</div>
+  if (suppliers.length === 0) return <div className="text-center py-16 text-[var(--color-muted)] text-sm">{t("suppliers.noSuppliers")}</div>
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {suppliers.map((sup, idx) => (
@@ -18,7 +20,7 @@ export function SupplierGrid({ suppliers, isLoading, onEdit, onDelete }) {
                 </div>
                 <div>
                   <div className="font-semibold text-[var(--color-text)] text-sm">{sup.supplier_name}</div>
-                  <div className="text-xs text-[var(--color-muted)]">Supplier #{sup.supplier_id}</div>
+                  <div className="text-xs text-[var(--color-muted)]">{t("nav.suppliers")} #{sup.supplier_id}</div>
                 </div>
               </div>
             </div>
@@ -34,10 +36,10 @@ export function SupplierGrid({ suppliers, isLoading, onEdit, onDelete }) {
 
             <div className="flex gap-2">
               <button onClick={() => onEdit(sup)} className="flex-1 flex items-center justify-center gap-1.5 border border-[var(--color-border)] rounded-xl py-2 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-muted)] hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-all">
-                <Pencil size={13} /> Edit
+                <Pencil size={13} /> {t("common.edit") || "Edit"}
               </button>
               <button onClick={() => onDelete(sup.supplier_id)} className="flex-1 flex items-center justify-center gap-1.5 border border-[var(--color-danger)]/25 text-[var(--color-danger)] rounded-xl py-2 text-sm font-medium hover:bg-[var(--color-danger-muted)] transition-colors">
-                <Trash2 size={13} /> Delete
+                <Trash2 size={13} /> {t("common.delete") || "Delete"}
               </button>
             </div>
           </div>
@@ -48,6 +50,7 @@ export function SupplierGrid({ suppliers, isLoading, onEdit, onDelete }) {
 }
 
 export function SupplierFormDialog({ open, onClose, isEdit, title, description, form, setForm, errorMsg, saving, onSubmit, submitLabel }) {
+  const { t } = useLang()
   const ph = (text) => (isEdit ? undefined : text)
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
@@ -58,22 +61,22 @@ export function SupplierFormDialog({ open, onClose, isEdit, title, description, 
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="space-y-1.5">
-            <Label>Name</Label>
-            <Input value={form.supplier_name} onChange={e => setForm(f => ({ ...f, supplier_name: e.target.value }))} placeholder={ph("Enter supplier name")} />
+            <Label>{t("suppliers.name")}</Label>
+            <Input value={form.supplier_name} onChange={e => setForm(f => ({ ...f, supplier_name: e.target.value }))} placeholder={ph(t("suppliers.enterName"))} />
           </div>
           <div className="space-y-1.5">
-            <Label>Phone</Label>
-            <Input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder={ph("Enter phone")} />
+            <Label>{t("suppliers.phone")}</Label>
+            <Input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder={ph(t("suppliers.enterPhone"))} />
           </div>
           <div className="space-y-1.5">
-            <Label>Email</Label>
-            <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder={ph("Enter email")} />
+            <Label>{t("suppliers.email")}</Label>
+            <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder={ph(t("suppliers.enterEmail"))} />
           </div>
         </div>
         {errorMsg && <div className="text-sm text-[var(--color-danger)] bg-[var(--color-danger-muted)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2 mt-3">{errorMsg}</div>}
         <div className="flex gap-2 justify-end mt-4">
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={onSubmit} disabled={saving}>{saving ? "Saving..." : submitLabel}</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
+          <Button onClick={onSubmit} disabled={saving}>{saving ? t("common.saving") : submitLabel}</Button>
         </div>
       </DialogContent>
     </Dialog>

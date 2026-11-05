@@ -1,5 +1,5 @@
 import { ShoppingCart, Check, Users, Plus, Minus } from "lucide-react"
-import { cn, menuItemName } from "@/lib/utils"
+import { cn, menuItemName, imageUrl } from "@/lib/utils"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui"
 import { ItemNoteRow } from "@/components/shared"
 import { useLang } from "@/i18n/LanguageContext"
@@ -62,7 +62,12 @@ export default function SubmitOrderDialog({
             {cartItems.map(item => (
               <div key={item.menu_item_id} className="pb-2 border-b border-[var(--color-border)] last:border-0 last:pb-0">
                 <div className="flex items-center gap-3">
-                  <img src={item.image_url || FALLBACK_IMG} alt={menuItemName(item, lang)} className="w-11 h-11 rounded-xl object-cover shrink-0" />
+                  <img
+                    src={imageUrl(item.image_url, FALLBACK_IMG)}
+                    alt={menuItemName(item, lang)}
+                    onError={(e) => { e.currentTarget.src = FALLBACK_IMG }}
+                    className="w-11 h-11 rounded-xl object-cover shrink-0"
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-[var(--color-text)] truncate">{menuItemName(item, lang)}</div>
                     <div className="text-xs text-[var(--color-text-secondary)]">${Number(item.price).toFixed(2)}</div>

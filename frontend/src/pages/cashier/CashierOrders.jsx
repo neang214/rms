@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { ShoppingBag, Search, QrCode } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, menuItemMatchesSearch } from "@/lib/utils"
 import { useOrderStore } from "../../context/orderContext"
 import { usePaymentStore } from "../../context/paymentContext"
 import { useSocketRole, useSocketEvent } from "../../services/socket"
@@ -9,7 +9,6 @@ import { useLang } from "@/i18n/LanguageContext"
 import { PageHeader, StatsBar } from "@/components/shared"
 import ReceiptScanner from "@/components/cashier/ReceiptScanner"
 import { orderTotal } from "@/components/cashier/orderHelpers"
-import UnconfirmedList from "@/components/cashier/UnconfirmedList"
 import ActiveOrdersTable from "@/components/cashier/ActiveOrdersTable"
 import ViewOrderDialog from "@/components/cashier/ViewOrderDialog"
 import PaymentDialog from "@/components/cashier/PaymentDialog"
@@ -17,12 +16,11 @@ import PaymentDialog from "@/components/cashier/PaymentDialog"
 export default function CashierOrders() {
   const { t } = useLang()
   usePageTitle("Order Management")
-  const { orders, fetchOrders, unconfirmedOrders, fetchUnconfirmedOrders, confirmOrder, rejectOrder, isLoading } = useOrderStore()
+  const { orders, fetchOrders, isLoading } = useOrderStore()
   const { paymentMethods, fetchPaymentMethods } = usePaymentStore()
 
   const [payOrder, setPayOrder] = useState(null)
   const [viewOrder, setViewOrder] = useState(null)
-  const [confirmBusyId, setConfirmBusyId] = useState(null)
   const [search, setSearch] = useState("")
   const [scannerOpen, setScannerOpen] = useState(false)
   const [scanError, setScanError] = useState("")
@@ -32,28 +30,21 @@ export default function CashierOrders() {
   useEffect(() => {
     fetchOrders()
     fetchPaymentMethods()
-    fetchUnconfirmedOrders()
     const interval = setInterval(() => {
       fetchOrders()
-      fetchUnconfirmedOrders()
     }, 60000)
     return () => clearInterval(interval)
   }, [])
 
-  useSocketEvent("order:new", () => { fetchOrders(); fetchUnconfirmedOrders() })
-  useSocketEvent("order:confirmed", () => { fetchOrders(); fetchUnconfirmedOrders() })
+  useSocketEvent("order:new", () => fetchOrders())
   useSocketEvent("order:status_changed", () => fetchOrders())
-  useSocketEvent("order:deleted", () => { fetchOrders(); fetchUnconfirmedOrders() })
+  useSocketEvent("order:deleted", () => fetchOrders())
   useSocketEvent("order_item:new", () => fetchOrders())
   useSocketEvent("order_item:status_changed", () => fetchOrders())
   useSocketEvent("payment:completed", () => fetchOrders())
 
-  const activeOrders = orders.filter(o => !(o.is_paid ?? o.status === "Paid") && o.confirmed !== false)
+  const activeOrders = orders.filter(o => !(o.is_paid ?? o.status === "Paid"))
 
-  
-  
-  
-  
   const handleReceiptFound = (orderId) => {
     setScannerOpen(false)
     const found = orders.find(o => o.order_id === orderId)
@@ -65,17 +56,10 @@ export default function CashierOrders() {
       setScanError(`Order #${String(orderId).padStart(4, "0")} has already been paid.`)
       return
     }
-    if (found.confirmed === false) {
-      setScanError(`Order #${String(orderId).padStart(4, "0")} hasn't been confirmed yet.`)
-      return
-    }
     setScanError("")
     setPayOrder(found)
   }
 
-  // Search by table number or waiting (queue) number — either can be typed
-  // as-is, matching is exact on the number so "5" doesn't accidentally
-  
   const searchQuery = search.trim().toLowerCase()
   const searchDigits = searchQuery.replace(/\D/g, "")
   const searchAsNumber = searchDigits ? parseInt(searchDigits, 10) : null
@@ -113,8 +97,8 @@ export default function CashierOrders() {
           return true
         }
 
-        // 5. Item match
-        if (o.order_items?.some(oi => oi.menu_item?.item_name?.toLowerCase().includes(searchQuery))) {
+        // 5. Item match (English or Khmer)
+        if (o.order_items?.some(oi => menuItemMatchesSearch(oi.menu_item, searchQuery))) {
           return true
         }
 
@@ -153,33 +137,10 @@ export default function CashierOrders() {
     { key: "Pending", label: t("cashier.newOrders"), sub: `${grouped.Pending.length} ${t("cashier.ordersWaiting")}`, accent: "text-[var(--color-text-secondary)]", bar: "bg-[var(--color-muted)]" },
   ]
 
-  const handleConfirmGuestOrder = async (order) => {
-    setConfirmBusyId(order.order_id)
-    try {
-      await confirmOrder(order.order_id)
-      await fetchOrders()
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setConfirmBusyId(null)
-    }
-  }
-
-  const handleRejectGuestOrder = async (order) => {
-    setConfirmBusyId(order.order_id)
-    try {
-      await rejectOrder(order.order_id)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setConfirmBusyId(null)
-    }
-  }
-
   return (
     <div className="space-y-4">
       <PageHeader icon={ShoppingBag} title={t("nav.orders")}
-        subtitle={`• ${stats.active} active`} />
+        subtitle={`• ${stats.active} ${t("cashier.statActive")}`} />
 
       {/* Search & Scan */}
       <div className="flex items-center gap-2">
@@ -189,36 +150,17 @@ export default function CashierOrders() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             onKeyDown={handleSearchKeyDown}
-            placeholder="Search by order # (e.g. #0042), table, or waiting #..."
+            placeholder={t("cashier.searchPlaceholder")}
             className="w-full h-10 pl-9 pr-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
           />
         </div>
         <button onClick={() => { setScanError(""); setScannerOpen(true) }}
           className="flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-[var(--color-border)] text-sm font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors shrink-0">
-          <QrCode size={15} /> Scan receipt
+          <QrCode size={15} /> {t("cashier.scanReceipt")}
         </button>
       </div>
       {scanError && (
         <div className="text-sm text-[var(--color-danger)] bg-[var(--color-danger-muted)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2">{scanError}</div>
-      )}
-
-      {}
-      {unconfirmedOrders.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-1 h-5 rounded-full bg-[var(--color-warning)]" />
-            <div>
-              <div className="font-semibold text-sm text-[var(--color-warning)]">{t("cashier.awaiting")}</div>
-              <div className="text-[10px] text-[var(--color-muted)]">{unconfirmedOrders.length} guest order{unconfirmedOrders.length !== 1 ? "s" : ""} need review — confirm only if the table really has a customer</div>
-            </div>
-          </div>
-          <UnconfirmedList
-            orders={unconfirmedOrders}
-            onConfirm={handleConfirmGuestOrder}
-            onReject={handleRejectGuestOrder}
-            busyId={confirmBusyId}
-          />
-        </div>
       )}
 
       {/* Stats bar */}
@@ -231,11 +173,11 @@ export default function CashierOrders() {
       ]} />
 
       {isLoading && activeOrders.length === 0 ? (
-        <div className="text-center py-16 text-[var(--color-muted)] text-sm">Loading orders...</div>
-      ) : activeOrders.length === 0 && unconfirmedOrders.length === 0 ? (
-        <div className="text-center py-16 text-[var(--color-muted)] text-sm">No active orders.</div>
+        <div className="text-center py-16 text-[var(--color-muted)] text-sm">{t("cashier.loadingOrders")}</div>
+      ) : activeOrders.length === 0 ? (
+        <div className="text-center py-16 text-[var(--color-muted)] text-sm">{t("cashier.noActiveOrders")}</div>
       ) : searchQuery && searchedOrders.length === 0 ? (
-        <div className="text-center py-16 text-[var(--color-muted)] text-sm">No active order matches "{searchQuery}".</div>
+        <div className="text-center py-16 text-[var(--color-muted)] text-sm">{t("cashier.noMatchingOrders")} "{searchQuery}".</div>
       ) : (
         sectionConfig.map(({ key, label, sub, accent, bar }) => (
           grouped[key].length > 0 && (
@@ -258,7 +200,6 @@ export default function CashierOrders() {
       <PaymentDialog
         order={payOrder}
         paymentMethods={paymentMethods}
-        unconfirmedCount={unconfirmedOrders.length}
         onClose={() => setPayOrder(null)}
         onPaid={fetchOrders}
       />

@@ -13,7 +13,7 @@ clientApi.interceptors.request.use((config) => {
   if (guestSession) {
     config.headers["x-guest-session"] = guestSession
   }
-  const token = localStorage.getItem("rms_token")
+  const token = sessionStorage.getItem("rms_token")
   if (token) {
     config.headers["Authorization"] = `Bearer ${token}`
   }
@@ -24,8 +24,9 @@ clientApi.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401) {
-      localStorage.removeItem("rms_token")
+      sessionStorage.removeItem("rms_token")
       sessionStorage.removeItem("rms-tab-authenticated")
+      localStorage.removeItem("rms_token")
     }
     return Promise.reject(error)
   }

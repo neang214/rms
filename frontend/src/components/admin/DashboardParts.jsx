@@ -1,11 +1,14 @@
 import { TrendingUp, Calendar, DollarSign, Flame, Clock } from "lucide-react"
 import { Card, Badge, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui"
+import { useLang } from "@/i18n/LanguageContext"
+import { menuItemName } from "@/lib/utils"
 
 export function RevenueStats({ dailyRevenue, weeklyRevenue, monthlyRevenue }) {
+  const { t } = useLang()
   const revenueStats = [
-    { label: "Today's Revenue", value: dailyRevenue?.total ? `$${Number(dailyRevenue.total).toFixed(2)}` : "$0.00", sub: "From today's paid orders", icon: TrendingUp, color: "text-[var(--color-primary)]" },
-    { label: "Weekly Revenue", value: weeklyRevenue?.total ? `$${Number(weeklyRevenue.total).toFixed(2)}` : "$0.00", sub: "Current week cumulative", icon: Calendar, color: "text-[var(--color-info)]" },
-    { label: "Monthly Revenue", value: monthlyRevenue?.total ? `$${Number(monthlyRevenue.total).toFixed(2)}` : "$0.00", sub: "Current month cumulative", icon: DollarSign, color: "text-[var(--color-plum)]" },
+    { label: t("dashboard.todayRevenue"), value: dailyRevenue?.total ? `$${Number(dailyRevenue.total).toFixed(2)}` : "$0.00", sub: t("dashboard.todaySub"), icon: TrendingUp, color: "text-[var(--color-primary)]" },
+    { label: t("dashboard.weeklyRevenue"), value: weeklyRevenue?.total ? `$${Number(weeklyRevenue.total).toFixed(2)}` : "$0.00", sub: t("dashboard.weeklySub"), icon: Calendar, color: "text-[var(--color-info)]" },
+    { label: t("dashboard.monthlyRevenue"), value: monthlyRevenue?.total ? `$${Number(monthlyRevenue.total).toFixed(2)}` : "$0.00", sub: t("dashboard.monthlySub"), icon: DollarSign, color: "text-[var(--color-plum)]" },
   ]
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -26,13 +29,14 @@ export function RevenueStats({ dailyRevenue, weeklyRevenue, monthlyRevenue }) {
 }
 
 export function TopSellingTable({ topSellingItems }) {
+  const { t, lang } = useLang()
   return (
     <Card>
       <div className="p-5 pb-3 border-b border-[var(--color-border)] flex items-center gap-2">
         <Flame size={18} className="text-[var(--color-flame)]" />
         <div>
-          <div className="font-semibold text-[var(--color-primary)] text-base">Top Selling Items</div>
-          <div className="text-xs text-[var(--color-muted)] mt-0.5">Most popular menu items based on quantity sold</div>
+          <div className="font-semibold text-[var(--color-primary)] text-base">{t("dashboard.topSelling")}</div>
+          <div className="text-xs text-[var(--color-muted)] mt-0.5">{t("dashboard.topSellingSub")}</div>
         </div>
       </div>
 
@@ -40,9 +44,9 @@ export function TopSellingTable({ topSellingItems }) {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent border-none">
-              <TableHead className="w-16">Rank</TableHead>
-              <TableHead>Item Name</TableHead>
-              <TableHead className="text-right">Units Sold</TableHead>
+              <TableHead className="w-16">{t("dashboard.rank")}</TableHead>
+              <TableHead>{t("dashboard.itemName")}</TableHead>
+              <TableHead className="text-right">{t("dashboard.unitsSold")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -53,11 +57,11 @@ export function TopSellingTable({ topSellingItems }) {
                     #{index + 1}
                   </TableCell>
                   <TableCell className="font-medium text-[var(--color-text)]">
-                    {item.item_name}
+                    {menuItemName(item, lang)}
                   </TableCell>
                   <TableCell className="text-right">
                     <Badge variant="secondary" className="font-semibold">
-                      {item.total_quantity} sold
+                      {item.total_quantity} {t("dashboard.sold")}
                     </Badge>
                   </TableCell>
                 </TableRow>
@@ -65,7 +69,7 @@ export function TopSellingTable({ topSellingItems }) {
             ) : (
               <TableRow>
                 <TableCell colSpan={3} className="text-center text-xs text-[var(--color-muted)] py-6">
-                  No sales records available yet.
+                  {t("dashboard.noSales")}
                 </TableCell>
               </TableRow>
             )}
@@ -84,6 +88,7 @@ function formatHourLabel(hourNum) {
 }
 
 export function PeakHoursCard({ peakHours = [] }) {
+  const { t } = useLang()
   const maxOrders = peakHours.length > 0
     ? Math.max(...peakHours.map(p => Number(p.total_orders) || 0), 1)
     : 1
@@ -93,15 +98,15 @@ export function PeakHoursCard({ peakHours = [] }) {
       <div className="p-5 pb-3 border-b border-[var(--color-border)] flex items-center gap-2">
         <Clock size={18} className="text-[var(--color-info)]" />
         <div>
-          <div className="font-semibold text-[var(--color-primary)] text-base">Peak Order Hours</div>
-          <div className="text-xs text-[var(--color-muted)] mt-0.5">Busiest hours of the day by total order volume</div>
+          <div className="font-semibold text-[var(--color-primary)] text-base">{t("dashboard.peakHours")}</div>
+          <div className="text-xs text-[var(--color-muted)] mt-0.5">{t("dashboard.peakHoursSub")}</div>
         </div>
       </div>
 
       <div className="p-5 space-y-3">
         {peakHours.length === 0 ? (
           <div className="text-center text-xs text-[var(--color-muted)] py-6">
-            No order hour data available yet.
+            {t("dashboard.noSales")}
           </div>
         ) : (
           peakHours.map((row) => {
@@ -112,7 +117,7 @@ export function PeakHoursCard({ peakHours = [] }) {
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-[var(--color-text)]">{formatHourLabel(row.hour)}</span>
                   <span className="font-semibold text-[var(--color-primary)]">
-                    {count} order{count !== 1 ? "s" : ""}
+                    {count} {t("cashier.orders")}
                   </span>
                 </div>
                 <div className="w-full h-2.5 rounded-full bg-[var(--color-primary-muted)] overflow-hidden">

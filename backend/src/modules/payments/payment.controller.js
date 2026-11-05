@@ -68,7 +68,7 @@ export const getPaymentByOrder = async (req, res) => {
 };
 
 export const createPayment = async (req, res) => {
-    const { order_id, method_id, method_name } = req.body;
+    const { order_id, method_id, method_name, external_ref } = req.body;
     const user_id = req.user.userId;
 
     if (!order_id || (!method_id && !method_name))
@@ -79,31 +79,34 @@ export const createPayment = async (req, res) => {
     const parsedOrderId = parseInt(order_id);
 
     try {
-        const order = await prisma.order.findUnique({
-            where: { order_id: parsedOrderId },
-            include: {
-                order_items: true,
-                payments: { where: { status: "Completed" } },
-            },
-        });
-
-        if (!order) return res.status(404).json({ message: "Order not found" });
-
-        if (order.payments.length > 0 || order.status === "Paid")
-            return res
-                .status(409)
-                .json({ message: "This order has already been paid" });
-
-        if (order.confirmed === false)
-            return res
-                .status(400)
-                .json({ message: "Order must be confirmed before it can be paid" });
-
-        const totalAmount = order.order_items.reduce((sum, item) => {
-            return sum + item.quantity * Number(item.unit_price);
-        }, 0);
-
         const result = await prisma.$transaction(async (tx) => {
+            // Serialize concurrent payment attempts for the same order
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(${parsedOrderId})`;
+
+            const order = await tx.order.findUnique({
+                where: { order_id: parsedOrderId },
+                include: {
+                    order_items: true,
+                    payments: { where: { status: "Completed" } },
+                },
+            });
+
+            if (!order) {
+                const err = new Error("ORDER_NOT_FOUND");
+                err.statusCode = 404;
+                throw err;
+            }
+
+            if (order.payments.length > 0 || order.status === "Paid") {
+                const err = new Error("ORDER_ALREADY_PAID");
+                err.statusCode = 409;
+                throw err;
+            }
+
+            const totalAmount = order.order_items.reduce((sum, item) => {
+                return sum + item.quantity * Number(item.unit_price);
+            }, 0);
+
             let resolvedMethodId = method_id ? parseInt(method_id) : null;
             if (method_name) {
                 let m = await tx.paymentMethod.findFirst({ where: { method_name } });
@@ -118,6 +121,7 @@ export const createPayment = async (req, res) => {
                     user: { connect: { user_id: user_id } },
                     amount: totalAmount,
                     status: "Completed",
+                    ...(external_ref ? { external_ref: String(external_ref).slice(0, 100) } : {}),
                 },
             });
 
@@ -133,29 +137,33 @@ export const createPayment = async (req, res) => {
                 });
             }
 
-            return payment;
+            return { payment, order };
         });
 
         // Emit real-time payment, order status, and table availability updates
         const io = getIO();
-        io.to("role:cashier").to("role:admin").to("role:server")
-            .emit("payment:completed", { order_id: parsedOrderId, payment: result });
-        io.to("role:cashier").to("role:admin").to("role:server")
-            .emit("order:status_changed", { order_id: parsedOrderId, table_id: order.table_id, status: "Paid" });
-        io.to(`table:${order.table_id}`)
-            .emit("order:status_changed", { order_id: parsedOrderId, table_id: order.table_id, status: "Paid" });
+        io.to("role:cashier").to("role:admin")
+            .emit("payment:completed", { order_id: parsedOrderId, payment: result.payment });
+        io.to("role:cashier").to("role:admin")
+            .emit("order:status_changed", { order_id: parsedOrderId, table_id: result.order.table_id, status: "Paid" });
+        io.to(`table:${result.order.table_id}`)
+            .emit("order:status_changed", { order_id: parsedOrderId, table_id: result.order.table_id, status: "Paid" });
 
-        if (order.table_id) {
-            io.to("role:admin").to("role:cashier").to("role:server")
-                .emit("table:updated", { table_id: order.table_id, is_available: true });
+        if (result.order.table_id) {
+            io.to("role:admin").to("role:cashier")
+                .emit("table:updated", { table_id: result.order.table_id, is_available: true });
         }
 
-        res.status(201).json(result);
+        res.status(201).json(result.payment);
     } catch (error) {
+        if (error.statusCode === 404)
+            return res.status(404).json({ message: "Order not found" });
+        if (error.statusCode === 409 || error.message === "ORDER_ALREADY_PAID")
+            return res.status(409).json({ message: "This order has already been paid" });
         if (error.code === "P2003")
-            return res
-                .status(404)
-                .json({ message: "Payment method not found" });
+            return res.status(404).json({ message: "Payment method not found" });
+        if (error.code === "P2002")
+            return res.status(409).json({ message: "Duplicate payment reference" });
         console.error("createPayment error:", error);
         res.status(500).json({ message: "Internal server error" });
     }

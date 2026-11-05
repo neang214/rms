@@ -36,7 +36,7 @@ export async function requireGuestSessionIfGuestChannel(req, res, next) {
     return res.status(401).json({ message: "Unauthorized: Staff login or guest session required" });
   }
 
-  const allowedStaffRoles = ["admin", "cashier", "server"];
+  const allowedStaffRoles = ["admin", "cashier"];
   if (!allowedStaffRoles.includes(req.user.role)) {
     return res.status(403).json({
       message: `Access denied. Required role: ${allowedStaffRoles.join(" or ")}`,

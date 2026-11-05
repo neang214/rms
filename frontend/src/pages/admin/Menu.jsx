@@ -10,11 +10,11 @@ import {
 } from "@/components/admin/MenuParts"
 import { ConfirmModal } from "@/components/shared"
 import { useLang } from "@/i18n/LanguageContext"
-import { deleteErrorMessage } from "@/lib/utils"
+import { deleteErrorMessage, imageUrl, menuItemMatchesSearch, menuItemName } from "@/lib/utils"
 
 export default function Menu() {
-  usePageTitle("Menu")
-  const { t } = useLang()
+  const { t, lang } = useLang()
+  usePageTitle(t("nav.menu"))
   const { items, fetchItems, createItem, updateItem, toggleItem, deleteItem, isLoading } = useMenuItemStore()
   const { categories, fetchCategories, createCategory, deleteCategory } = useMenuCategoryStore()
 
@@ -44,7 +44,8 @@ export default function Menu() {
 
   const filtered = (items || []).filter(i => {
     const matchesCat = activeCat === "All" || i.category_id === activeCat
-    const matchesSearch = i.item_name?.toLowerCase().includes(search.toLowerCase())
+    const cat = (categories || []).find(c => c.category_id === i.category_id)
+    const matchesSearch = menuItemMatchesSearch(i, search, cat?.category_name)
     return matchesCat && matchesSearch
   })
 
@@ -63,7 +64,7 @@ export default function Menu() {
     setEditItem(item)
     setErrorMsg("")
     setImageFile(null)
-    setImagePreview(item.image_url || null)
+    setImagePreview(item.image_url ? imageUrl(item.image_url) : null)
     setForm({ item_name: item.item_name, item_name_km: item.item_name_km || "", category_id: item.category_id, price: item.price })
   }
 
@@ -86,18 +87,19 @@ export default function Menu() {
   }
 
   const handleAdd = async () => {
-    if (!form.item_name || !form.category_id || !form.price) {
-      setErrorMsg("Name, category, and price are required.")
+    const parsedPrice = parseFloat(form.price)
+    if (!form.item_name?.trim() || !form.category_id || form.price === "" || isNaN(parsedPrice) || parsedPrice <= 0) {
+      setErrorMsg("Valid name, category, and positive price are required.")
       return
     }
     setSaving(true)
     setErrorMsg("")
     try {
       const created = await createItem({
-        item_name: form.item_name,
-        item_name_km: form.item_name_km || null,
+        item_name: form.item_name.trim(),
+        item_name_km: form.item_name_km?.trim() || null,
         category_id: parseInt(form.category_id),
-        price: parseFloat(form.price),
+        price: parsedPrice,
         available: true,
       })
       if (imageFile && created?.menu_item_id) {
@@ -113,17 +115,18 @@ export default function Menu() {
   }
 
   const handleUpdate = async () => {
-    if (!form.item_name || !form.price) {
-      setErrorMsg("Name and price are required.")
+    const parsedPrice = parseFloat(form.price)
+    if (!form.item_name?.trim() || form.price === "" || isNaN(parsedPrice) || parsedPrice <= 0) {
+      setErrorMsg("Valid name and positive price are required.")
       return
     }
     setSaving(true)
     setErrorMsg("")
     try {
       await updateItem(editItem.menu_item_id, {
-        item_name: form.item_name,
-        item_name_km: form.item_name_km || null,
-        price: parseFloat(form.price),
+        item_name: form.item_name.trim(),
+        item_name_km: form.item_name_km?.trim() || null,
+        price: parsedPrice,
       })
       if (imageFile) {
         await uploadItemImage(editItem.menu_item_id, imageFile)
@@ -196,11 +199,11 @@ export default function Menu() {
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} className="pl-9" placeholder="Search menu..." />
+          <Input value={search} onChange={e => setSearch(e.target.value)} className="pl-9" placeholder={t("menu.searchPlaceholder")} />
         </div>
         <div className="flex gap-2">
-          <Button onClick={openAdd} size="sm" className="gap-1.5"><Plus size={14} /> Add Menu</Button>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setAddCatOpen(true)}><Tag size={14} /> Category</Button>
+          <Button onClick={openAdd} size="sm" className="gap-1.5"><Plus size={14} /> {t("menu.addMenu")}</Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setErrorMsg(""); setAddCatOpen(true) }}><Tag size={14} /> {t("menu.category")}</Button>
         </div>
       </div>
 
@@ -210,18 +213,18 @@ export default function Menu() {
 
       <MenuFormDialog
         open={addOpen} onClose={() => setAddOpen(false)} isEdit={false} item={null}
-        title="Add Menu Item" description="Add a new item to your menu"
+        title={t("menu.addItemTitle")} description={t("menu.addItemDesc")}
         form={form} setForm={setForm} categories={categories}
         imagePreview={imagePreview} onImageSelect={handleImageSelect} onImageClear={handleImageClear}
-        errorMsg={errorMsg} saving={saving} onSubmit={handleAdd} submitLabel="Add menu item"
+        errorMsg={errorMsg} saving={saving} onSubmit={handleAdd} submitLabel={t("menu.addMenu")}
       />
 
       <MenuFormDialog
         open={!!editItem} onClose={() => setEditItem(null)} isEdit item={editItem}
-        title="Edit Menu Item" description="Update menu item information"
+        title={t("menu.editItemTitle")} description={t("menu.editItemDesc")}
         form={form} setForm={setForm} categories={categories}
         imagePreview={imagePreview} onImageSelect={handleImageSelect} onImageClear={handleImageClear}
-        errorMsg={errorMsg} saving={saving} onSubmit={handleUpdate} submitLabel="Update Menu"
+        errorMsg={errorMsg} saving={saving} onSubmit={handleUpdate} submitLabel={t("menu.updateMenu")}
         onToggleAvailable={handleToggleAvailable}
       />
 
@@ -239,9 +242,9 @@ export default function Menu() {
         onConfirm={handleDeleteItem}
         busy={deletingItem}
         danger
-        title="Delete this menu item?"
-        message={`This will permanently delete "${deleteItemTarget?.item_name}". This can't be undone.`}
-        confirmLabel="Delete"
+        title={t("menu.deleteTitle")}
+        message={`This will permanently delete "${deleteItemTarget ? menuItemName(deleteItemTarget, lang) : ""}". This can't be undone.`}
+        confirmLabel={t("common.delete")}
         errorMsg={deleteItemError}
       />
     </div>

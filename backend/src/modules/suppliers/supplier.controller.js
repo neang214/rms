@@ -32,13 +32,17 @@ export const getSupplier = async (req, res) => {
 export const createSupplier = async (req, res) => {
   const { supplier_name, phone, email } = req.body;
 
-  if (!supplier_name) {
-    return res.status(400).json({ message: "Supplier name is required" });
+  if (!supplier_name || !phone) {
+    return res.status(400).json({ message: "Supplier name and phone are required" });
   }
 
   try {
     const supplier = await prisma.supplier.create({
-      data: { supplier_name, phone, email },
+      data: {
+        supplier_name: String(supplier_name).trim(),
+        phone: String(phone).trim(),
+        email: email && String(email).trim() ? String(email).trim() : null,
+      },
     });
 
     res.status(201).json(supplier);
@@ -54,16 +58,25 @@ export const createSupplier = async (req, res) => {
 
 export const updateSupplier = async (req, res) => {
   const { supplier_name, phone, email } = req.body;
+  if (!supplier_name || !phone) {
+    return res.status(400).json({ message: "Supplier name and phone are required" });
+  }
   try {
     const supplier = await prisma.supplier.update({
       where: { supplier_id: parseInt(req.params.id) },
-      data: { supplier_name, phone, email },
+      data: {
+        supplier_name: String(supplier_name).trim(),
+        phone: String(phone).trim(),
+        email: email && String(email).trim() ? String(email).trim() : null,
+      },
     });
 
     res.status(200).json(supplier);
   } catch (error) {
     if (error.code === "P2025")
       return res.status(404).json({ message: "Supplier not found" });
+    if (error.code === "P2002")
+      return res.status(400).json({ message: "Supplier with this email already exists" });
     res.status(500).json({ message: "Internal server error" });
   }
 };

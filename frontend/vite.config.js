@@ -4,6 +4,11 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 export default defineConfig({
+    server: {
+        port: 3000,
+        strictPort: true, // Optional: fails instead of auto-switching if port 3000 is busy
+        host: "0.0.0.0", // Optional: exposes server to your local network
+    },
     plugins: [react(), tailwindcss()],
     resolve: {
         alias: {
@@ -27,6 +32,10 @@ export default defineConfig({
             // talks to this same origin for everything, and Vite quietly
             // relays it to the backend behind the scenes.
             "/api": {
+                target: "http://localhost:8080",
+                changeOrigin: true,
+            },
+            "/uploads": {
                 target: "http://localhost:8080",
                 changeOrigin: true,
             },

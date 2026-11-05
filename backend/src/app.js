@@ -1,6 +1,12 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.resolve(__dirname, "../uploads");
 
 import authRoutes          from "./modules/auth/auth.route.js";
 import userRoutes          from "./modules/users/user.route.js";
@@ -17,7 +23,8 @@ import supplierRoutes      from "./modules/suppliers/supplier.route.js";
 import analyticsRoutes     from "./modules/analytics/analytics.route.js";
 import unitRouter          from "./modules/unit/unit.route.js";
 import khqrRoutes          from "./modules/payments/khqr.route.js";
-import guestSessionRoutes  from "./modules/guestSession/guestSession.route.js"; // <-- ADD THIS
+import guestSessionRoutes  from "./modules/guestSession/guestSession.route.js";
+import { isAllowedOrigin } from "./sockets/index.js";
 
 const app = express();
 
@@ -25,26 +32,20 @@ app.set("trust proxy", 1);
 
 app.use(express.json());
 app.use(cookieParser());
-app.use("/uploads", express.static("uploads"));
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://zoom-rms.vercel.app",
-  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(",").map(s => s.trim()) : [])
-];
+
+export { isAllowedOrigin };
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (
-      allowedOrigins.includes(origin) ||
-      /\.vercel\.app$/.test(origin)
-    ) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
 }));
+
+app.use("/uploads", express.static(uploadsDir));
 
 app.get("/", (req, res) => {
   res.json({ status: "ok", message: "Zoom RMS Backend API is running" });

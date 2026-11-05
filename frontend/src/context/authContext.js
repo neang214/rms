@@ -12,9 +12,11 @@ export const authContext = create(
 
             checkAuth: async () => {
                 const isTabAuthed = sessionStorage.getItem(TAB_SESSION_KEY) === "true";
-                const hasToken = localStorage.getItem("rms_token");
+                const token = sessionStorage.getItem("rms_token");
 
-                if (!isTabAuthed && !hasToken) {
+                // If tab or browser was closed, sessionStorage is empty -> require login
+                if (!isTabAuthed || !token) {
+                    localStorage.removeItem("rms_token");
                     set({ user: null, isLoading: false });
                     return;
                 }
@@ -31,6 +33,7 @@ export const authContext = create(
                         error.response?.status === 403
                     ) {
                         sessionStorage.removeItem(TAB_SESSION_KEY);
+                        sessionStorage.removeItem("rms_token");
                         localStorage.removeItem("rms_token");
                         set({ user: null });
                     }
@@ -44,10 +47,10 @@ export const authContext = create(
                     const res = await api.post("/auth/login", formData);
                     const userData = res.data.user || res.data;
                     if (res.data.token) {
-                        localStorage.setItem("rms_token", res.data.token);
+                        sessionStorage.setItem("rms_token", res.data.token);
                     }
-                    
                     sessionStorage.setItem(TAB_SESSION_KEY, "true");
+                    localStorage.removeItem("rms_token");
                     set({ user: userData, isLoading: false });
                 } catch (error) {
                     console.error("Login failed:", error);
@@ -63,9 +66,11 @@ export const authContext = create(
                     console.error("Logout request error:", err);
                 } finally {
                     sessionStorage.removeItem(TAB_SESSION_KEY);
+                    sessionStorage.removeItem("rms_token");
+                    sessionStorage.removeItem("rms-auth-storage");
                     localStorage.removeItem("rms_token");
-                    set({ user: null });
                     localStorage.removeItem("rms-auth-storage");
+                    set({ user: null });
                 }
             },
         }),

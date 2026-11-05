@@ -131,11 +131,16 @@ export const useOrderStore = create((set, get) => ({
         }
     },
 
-    fetchOrderHistory: async (date, tableId) => {
+    fetchOrderHistory: async (dateOrParams, tableId) => {
         try {
-            const params = {};
-            if (date) params.date = date;
-            if (tableId) params.table_id = tableId;
+            let params = {};
+            if (typeof dateOrParams === "object" && dateOrParams !== null) {
+                params = { ...dateOrParams };
+                if (tableId && !params.table_id) params.table_id = tableId;
+            } else {
+                if (dateOrParams) params.date = dateOrParams;
+                if (tableId) params.table_id = tableId;
+            }
             const res = await api.get("/orders/history", { params });
             return res.data;
         } catch (error) {

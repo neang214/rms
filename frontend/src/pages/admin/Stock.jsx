@@ -16,7 +16,7 @@ import {
 
 export default function Stock() {
   const { t } = useLang()
-  usePageTitle("Stock Management")
+  usePageTitle(t("stock.title"))
   const {
     stockItems, lowStock, fetchStock, fetchLowStock,
     createStock, updateStock, increaseStock, deleteStock, uploadStockImage, isLoading,
@@ -101,18 +101,24 @@ export default function Stock() {
   }
 
   const handleAdd = async () => {
-    if (!form.item_name || !form.quantity || !form.unit_id || !form.min_level) {
+    if (!form.item_name || form.quantity === "" || !form.unit_id || form.min_level === "") {
       setErrorMsg("All fields are required.")
+      return
+    }
+    const qty = parseFloat(form.quantity)
+    const min = parseFloat(form.min_level)
+    if (isNaN(qty) || qty < 0 || isNaN(min) || min < 0) {
+      setErrorMsg("Quantity and min level must be valid non-negative numbers.")
       return
     }
     setSaving(true)
     setErrorMsg("")
     try {
       const created = await createStock({
-        item_name: form.item_name,
-        quantity: parseFloat(form.quantity),
+        item_name: form.item_name.trim(),
+        quantity: qty,
         unit_id: parseInt(form.unit_id),
-        min_level: parseFloat(form.min_level),
+        min_level: min,
         stock_type: form.stock_type,
       })
       if (imageFile && created?.stock_id) {
@@ -128,14 +134,24 @@ export default function Stock() {
   }
 
   const handleUpdate = async () => {
+    if (!form.item_name || form.quantity === "" || !form.unit_id || form.min_level === "") {
+      setErrorMsg("All fields are required.")
+      return
+    }
+    const qty = parseFloat(form.quantity)
+    const min = parseFloat(form.min_level)
+    if (isNaN(qty) || qty < 0 || isNaN(min) || min < 0) {
+      setErrorMsg("Quantity and min level must be valid non-negative numbers.")
+      return
+    }
     setSaving(true)
     setErrorMsg("")
     try {
       await updateStock(editItem.stock_id, {
-        item_name: form.item_name,
-        quantity: parseFloat(form.quantity),
+        item_name: form.item_name.trim(),
+        quantity: qty,
         unit_id: parseInt(form.unit_id),
-        min_level: parseFloat(form.min_level),
+        min_level: min,
         stock_type: form.stock_type,
       })
       if (imageFile) {
@@ -176,10 +192,15 @@ export default function Stock() {
   }
 
   const handleAddQty = async () => {
-    if (!addQty) return
+    const amount = parseFloat(addQty)
+    if (!addQty || isNaN(amount) || amount <= 0) {
+      setErrorMsg("Please enter a valid positive quantity.")
+      return
+    }
     setSaving(true)
+    setErrorMsg("")
     try {
-      await increaseStock(addQtyItem.stock_id, parseFloat(addQty))
+      await increaseStock(addQtyItem.stock_id, amount)
       await fetchLowStock()
       setAddQtyItem(null)
       setAddQty("")
@@ -191,11 +212,11 @@ export default function Stock() {
   }
 
   const handleAddUnit = async () => {
-    if (!newUnitName) return
+    if (!newUnitName.trim()) return
     setSaving(true)
     setErrorMsg("")
     try {
-      await createUnit({ unit_name: newUnitName })
+      await createUnit({ unit_name: newUnitName.trim() })
       setNewUnitName("")
     } catch (err) {
       setErrorMsg(err?.response?.data?.message || "Failed to add unit.")
@@ -205,12 +226,20 @@ export default function Stock() {
   }
 
   const handleUpdateUnit = async (id, unit_name) => {
+    const oldUnit = units.find(u => u.unit_id === id)
     await updateUnit(id, { unit_name })
+    if (oldUnit && catFilter === oldUnit.unit_name) {
+      setCatFilter(unit_name)
+    }
     await fetchStock()
   }
 
   const handleDeleteUnit = async (id) => {
+    const oldUnit = units.find(u => u.unit_id === id)
     await deleteUnit(id)
+    if (oldUnit && catFilter === oldUnit.unit_name) {
+      setCatFilter("All categories")
+    }
   }
 
   // Purchase Order handlers
@@ -264,9 +293,9 @@ export default function Stock() {
 
   return (
     <div className="space-y-5">
-      <SimpleHeader title="Stock Management"
-        subtitle="Manage inventory, units, and supplier purchase orders"
-        action={<Button onClick={openAdd} className="gap-2"><Plus size={15} /> Add New Stock Item</Button>} />
+      <SimpleHeader title={t("stock.title")}
+        subtitle={t("stock.subtitle")}
+        action={<Button onClick={openAdd} className="gap-2"><Plus size={15} /> {t("stock.addItem")}</Button>} />
 
       <StockStats
         stockItems={stockItems}
@@ -283,7 +312,7 @@ export default function Stock() {
         lowOnly={lowOnly} setLowOnly={setLowOnly} lowStockCount={lowStockCount}
         unitNames={unitNames}
         onAddUnit={() => { setErrorMsg(""); setAddUnitOpen(true) }}
-        onAddQty={setAddQtyItem} onView={setViewItem} onEdit={openEdit} onDelete={requestDelete}
+        onAddQty={(item) => { setErrorMsg(""); setAddQty(""); setAddQtyItem(item) }} onView={setViewItem} onEdit={openEdit} onDelete={requestDelete}
       />
 
       <StockOrdersCard
@@ -308,18 +337,18 @@ export default function Stock() {
 
       <StockFormDialog
         open={addOpen} onClose={() => setAddOpen(false)}
-        title="Add New Stock Item" description="Add a new item to your inventory"
+        title={t("stock.addItem")} description={t("stock.subtitle")}
         form={form} setForm={setForm} units={units}
         imagePreview={imagePreview} onImageSelect={handleImageSelect} onImageClear={handleImageClear}
-        errorMsg={errorMsg} saving={saving} onSubmit={handleAdd} submitLabel="Add Stock Item"
+        errorMsg={errorMsg} saving={saving} onSubmit={handleAdd} submitLabel={t("stock.addItem")}
       />
 
       <StockFormDialog
         open={!!editItem} onClose={() => setEditItem(null)}
-        title="Edit Stock Item" description="Update stock item information"
+        title={t("stock.editItem")} description={t("stock.subtitle")}
         form={form} setForm={setForm} units={units}
         imagePreview={imagePreview} onImageSelect={handleImageSelect} onImageClear={handleImageClear}
-        errorMsg={errorMsg} saving={saving} onSubmit={handleUpdate} submitLabel="Update Stock Item"
+        errorMsg={errorMsg} saving={saving} onSubmit={handleUpdate} submitLabel={t("stock.updateItem")}
       />
 
       <StockViewDialog item={viewItem} onClose={() => setViewItem(null)} />
@@ -346,9 +375,9 @@ export default function Stock() {
         onConfirm={handleDelete}
         busy={deleting}
         danger
-        title="Delete this stock item?"
-        message={`This will permanently delete "${deleteTarget?.item_name}". This can't be undone.`}
-        confirmLabel="Delete"
+        title={t("stock.deleteTitle")}
+        message={t("stock.deleteMsg")}
+        confirmLabel={t("common.delete")}
         errorMsg={deleteError}
       />
     </div>

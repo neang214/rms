@@ -16,6 +16,7 @@ const getQueue = async (type) => {
       menu_item: {
         select: {
           item_name: true,
+          item_name_km: true,
           category: { select: { category_name: true } },
         },
       },
@@ -50,7 +51,7 @@ export const getItemsByOrder = async (req, res) => {
       where: { order_id: parseInt(req.params.orderId) },
       include: {
         menu_item: {
-          select: { item_name: true, price: true },
+          select: { item_name: true, item_name_km: true, price: true },
         },
       },
     });
@@ -148,22 +149,21 @@ export const addItem = async (req, res) => {
         note: note ? String(note).slice(0, 255) : null,
       },
       include: {
-        menu_item: { select: { item_name: true, price: true } },
+        menu_item: { select: { item_name: true, item_name_km: true, price: true } },
         order: { select: { order_id: true, table: { select: { table_number: true } } } },
       },
     });
 
     const io = getIO();
 
-    io.to("role:cashier").to("role:server").to("role:admin").emit("order_item:new", orderItem);
+    io.to("role:cashier").to("role:admin").emit("order_item:new", orderItem);
     io.to(`table:${order.table_id}`).emit("order_item:new", orderItem);
 
-    if (order.confirmed) {
-      if (menuItem.category?.type === "food") {
-        io.to("role:kitchen").emit("order_item:new", orderItem);
-      } else if (menuItem.category?.type === "drink") {
-        io.to("role:barista").emit("order_item:new", orderItem);
-      }
+    // Auto-confirm: guest & staff orders immediately dispatch to kitchen/barista
+    if (menuItem.category?.type === "food") {
+      io.to("role:kitchen").emit("order_item:new", orderItem);
+    } else if (menuItem.category?.type === "drink") {
+      io.to("role:barista").emit("order_item:new", orderItem);
     }
 
     res.status(201).json(orderItem);
@@ -188,13 +188,13 @@ export const updateItemStatus = async (req, res) => {
       where: { order_item_id: parseInt(req.params.id) },
       data: { status },
       include: {
-        menu_item: { select: { item_name: true, category: { select: { type: true } } } },
+        menu_item: { select: { item_name: true, item_name_km: true, category: { select: { type: true } } } },
       },
     });
 
     const io = getIO();
     const room = orderItem.menu_item?.category?.type === "drink" ? "role:barista" : "role:kitchen";
-    io.to(room).to("role:cashier").to("role:server").emit("order_item:status_changed", orderItem);
+    io.to(room).to("role:cashier").emit("order_item:status_changed", orderItem);
 
     if (status === "Ready") {
       const allItems = await prisma.orderItem.findMany({
@@ -209,7 +209,7 @@ export const updateItemStatus = async (req, res) => {
           where: { order_id: orderItem.order_id },
           data: { status: "Served" },
         });
-        io.to("role:cashier").to("role:admin").to("role:server").emit("order:status_changed", updatedOrder);
+        io.to("role:cashier").to("role:admin").emit("order:status_changed", updatedOrder);
         io.to(`table:${updatedOrder.table_id}`).emit("order:status_changed", updatedOrder);
       }
     }
@@ -243,7 +243,7 @@ export const updateItemNote = async (req, res) => {
       where: { order_item_id: parseInt(req.params.id) },
       data: { note: note ? String(note).slice(0, 255) : null },
       include: {
-        menu_item: { select: { item_name: true, category: { select: { type: true } } } },
+        menu_item: { select: { item_name: true, item_name_km: true, category: { select: { type: true } } } },
       },
     });
 
@@ -263,6 +263,10 @@ export const deleteItem = async (req, res) => {
   try {
     const orderItem = await prisma.orderItem.findUnique({
       where: { order_item_id: parseInt(req.params.id) },
+      include: {
+        menu_item: { select: { category: { select: { type: true } } } },
+        order: { select: { table_id: true } },
+      },
     });
 
     if (!orderItem) {
@@ -275,12 +279,42 @@ export const deleteItem = async (req, res) => {
         .json({ message: "Cannot remove item that is already being prepared" });
     }
 
-    await prisma.orderItem.delete({
+    const deleted = await prisma.orderItem.delete({
       where: { order_item_id: parseInt(req.params.id) },
     });
 
+    const io = getIO();
+    const room = orderItem.menu_item?.category?.type === "drink" ? "role:barista" : "role:kitchen";
+    io.to(room).to("role:cashier").to("role:admin").emit("order_item:deleted", {
+      order_item_id: deleted.order_item_id,
+      order_id: deleted.order_id,
+    });
+    if (orderItem.order?.table_id) {
+      io.to(`table:${orderItem.order.table_id}`).emit("order_item:deleted", {
+        order_item_id: deleted.order_item_id,
+        order_id: deleted.order_id,
+      });
+    }
+
+    const remainingItems = await prisma.orderItem.findMany({
+      where: { order_id: deleted.order_id },
+      select: { status: true },
+    });
+
+    if (remainingItems.length > 0 && remainingItems.every((item) => item.status === "Ready")) {
+      const updatedOrder = await prisma.order.update({
+        where: { order_id: deleted.order_id },
+        data: { status: "Served" },
+      });
+      io.to("role:cashier").to("role:admin").emit("order:status_changed", updatedOrder);
+      if (updatedOrder.table_id) {
+        io.to(`table:${updatedOrder.table_id}`).emit("order:status_changed", updatedOrder);
+      }
+    }
+
     res.status(200).json({ message: "Item successfully removed from order" });
-  } catch {
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };

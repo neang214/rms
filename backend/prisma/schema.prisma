@@ -19,7 +19,6 @@ enum Role {
   cashier
   barista
   kitchen
-  server
 }
 
 enum OrderStatus {
@@ -111,9 +110,10 @@ model GuestSession {
   // is ever persisted — the raw token is returned to the guest once, at
   // creation, the same way a password reset token is handled.
   table_id   Int
-  table      Table    @relation(fields: [table_id], references: [table_id])
+  table      Table    @relation(fields: [table_id], references: [table_id], onDelete: Cascade)
   created_at DateTime @default(now())
   expires_at DateTime
+  orders     Order[]
 
   @@index([expires_at])
   @@map("guest_sessions")
@@ -153,6 +153,8 @@ model MenuItem {
   category    MenuCategory @relation(fields: [category_id], references: [category_id])
   order_items OrderItem[]
 
+  @@index([category_id])
+  @@index([available])
   @@map("menu_items")
 }
 
@@ -169,20 +171,20 @@ model Order {
   party_size Int?        // number of customers, optionally set when the order is created — helps the kitchen gauge prep quantity
   table_id   Int
   user_id    Int?        // null = guest
-  confirmed  Boolean     @default(true)
-  // Guest orders (user_id null) are created with confirmed = false by
-  // createOrder — see order.controller.js. Staff-placed orders stay true
-  // since there's no anonymity to verify. Kitchen/barista queues only
-  // pull confirmed = true items, so an unconfirmed guest order never
-  // reaches the kitchen until a cashier approves it (the prank/ghost
-  // order confirmation gate).
+  session_id Int?        // links order to the QR guest session device
+  confirmed  Boolean     @default(true) // Auto-confirmed: guest and staff orders immediately proceed to kitchen/barista queues
 
   // Relations
-  table       Table       @relation(fields: [table_id], references: [table_id])
-  user        User?       @relation(fields: [user_id], references: [user_id])
-  order_items OrderItem[]
-  payments    Payment[]
+  table         Table         @relation(fields: [table_id], references: [table_id])
+  user          User?         @relation(fields: [user_id], references: [user_id])
+  guest_session GuestSession? @relation(fields: [session_id], references: [session_id], onDelete: SetNull)
+  order_items   OrderItem[]
+  payments      Payment[]
 
+  @@index([table_id, status])
+  @@index([status])
+  @@index([order_date])
+  @@index([session_id])
   @@map("orders")
 }
 
@@ -204,9 +206,12 @@ model OrderItem {
   // whole order, so kitchen/barista know exactly which item it applies to.
 
   // Relations
-  order     Order    @relation(fields: [order_id], references: [order_id])
+  order     Order    @relation(fields: [order_id], references: [order_id], onDelete: Cascade)
   menu_item MenuItem @relation(fields: [menu_item_id], references: [menu_item_id])
 
+  @@index([order_id])
+  @@index([status])
+  @@index([menu_item_id])
   @@map("order_items")
 }
 
@@ -236,12 +241,15 @@ model Payment {
   status       PaymentStatus @default(Pending)
   order_id     Int
   user_id      Int
+  external_ref String?       @unique @db.VarChar(100)
 
   // Relations
   method PaymentMethod @relation(fields: [method_id], references: [method_id])
   order  Order         @relation(fields: [order_id], references: [order_id])
   user   User          @relation(fields: [user_id], references: [user_id])
 
+  @@index([order_id])
+  @@index([payment_date, status])
   @@map("payments")
 }
 
@@ -317,4 +325,17 @@ model Supplier {
   stock_orders StockOrder[]
 
   @@map("suppliers")
+}
+
+// ============================================================
+// TELEGRAM SUBSCRIBERS
+// ============================================================
+
+model TelegramSubscriber {
+  id         Int      @id @default(autoincrement())
+  chat_id    String   @unique @db.VarChar(50)
+  name       String?  @db.VarChar(100)
+  created_at DateTime @default(now())
+
+  @@map("telegram_subscribers")
 }

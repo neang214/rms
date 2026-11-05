@@ -11,7 +11,7 @@ import { UserStats, UsersTable, UserFormDialog } from "@/components/admin/UserMa
 
 export default function UserManagement() {
   const { t } = useLang()
-  usePageTitle("User Management")
+  usePageTitle(t("nav.users"))
   const { users, fetchUsers, createUser, updateUser, deleteUser, isLoading } = useUserStore()
   const { user: currentUser } = authContext()
 
@@ -32,7 +32,7 @@ export default function UserManagement() {
     (u.username.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()))
   )
 
-  const counts = { admin: 0, kitchen: 0, barista: 0, cashier: 0, server: 0 }
+  const counts = { admin: 0, kitchen: 0, barista: 0, cashier: 0 }
   users.forEach(u => { if (counts[u.role] !== undefined) counts[u.role]++ })
 
   const openAdd = () => {
@@ -49,7 +49,7 @@ export default function UserManagement() {
 
   const handleAdd = async () => {
     if (!form.username || !form.email || !form.password || !form.role) {
-      setErrorMsg("All fields are required.")
+      setErrorMsg(t("users.allRequired"))
       return
     }
     setSaving(true)
@@ -58,22 +58,26 @@ export default function UserManagement() {
       await createUser(form)
       setAddOpen(false)
     } catch (err) {
-      setErrorMsg(err?.response?.data?.message || "Failed to add user.")
+      setErrorMsg(err?.response?.data?.message || t("cashier.submitFailed"))
     } finally {
       setSaving(false)
     }
   }
 
   const handleUpdate = async () => {
+    if (!form.username?.trim() || !form.email?.trim() || !form.role) {
+      setErrorMsg(t("users.allRequired"))
+      return
+    }
     setSaving(true)
     setErrorMsg("")
     try {
-      const payload = { username: form.username, email: form.email, role: form.role }
+      const payload = { username: form.username.trim(), email: form.email.trim(), role: form.role }
       if (form.password) payload.password = form.password
       await updateUser(editUser.user_id, payload)
       setEditUser(null)
     } catch (err) {
-      setErrorMsg(err?.response?.data?.message || "Failed to update user.")
+      setErrorMsg(err?.response?.data?.message || t("cashier.submitFailed"))
     } finally {
       setSaving(false)
     }
@@ -107,9 +111,9 @@ export default function UserManagement() {
 
   return (
     <div className="space-y-5">
-      <SimpleHeader title="User Management"
-        subtitle="Manage staff accounts and permissions"
-        action={<Button onClick={openAdd} className="gap-2"><Plus size={15} /> Add User</Button>} />
+      <SimpleHeader title={t("nav.users")}
+        subtitle={t("users.manageSubtitle")}
+        action={<Button onClick={openAdd} className="gap-2"><Plus size={15} /> {t("users.addUser")}</Button>} />
 
       <UserStats users={users} counts={counts} />
 
@@ -122,16 +126,16 @@ export default function UserManagement() {
 
       <UserFormDialog
         open={addOpen} onClose={() => setAddOpen(false)} isEdit={false}
-        title="Add New User" description="Add a new staff member to the system"
+        title={t("users.addUser")} description={t("users.subtitle")}
         form={form} setForm={setForm} errorMsg={errorMsg} saving={saving}
-        onSubmit={handleAdd} submitLabel="Add User"
+        onSubmit={handleAdd} submitLabel={t("users.addUser")}
       />
 
       <UserFormDialog
         open={!!editUser} onClose={() => setEditUser(null)} isEdit
-        title="Edit User" description="Update staff member information"
+        title={t("users.editUser")} description={t("users.editSub")}
         form={form} setForm={setForm} errorMsg={errorMsg} saving={saving}
-        onSubmit={handleUpdate} submitLabel="Update User"
+        onSubmit={handleUpdate} submitLabel={t("users.updateUser")}
       />
       <ConfirmModal
         open={!!deleteTarget}
@@ -139,9 +143,9 @@ export default function UserManagement() {
         onConfirm={handleDelete}
         busy={deleting}
         danger
-        title="Delete this user?"
-        message={`This will permanently delete "${deleteTarget?.username}". This can't be undone.`}
-        confirmLabel="Delete"
+        title={t("users.deleteTitle")}
+        message={t("users.deleteMsg")}
+        confirmLabel={t("common.delete")}
         errorMsg={deleteError}
       />
     </div>

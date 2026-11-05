@@ -10,7 +10,7 @@ import { SupplierGrid, SupplierFormDialog } from "@/components/admin/SuppliersPa
 
 export default function Suppliers() {
   const { t } = useLang()
-  usePageTitle("Supplier")
+  usePageTitle(t("nav.suppliers"))
   const { suppliers, fetchSuppliers, createSupplier, updateSupplier, deleteSupplier, isLoading } = useSupplierStore()
 
   const [search, setSearch] = useState("")
@@ -43,30 +43,42 @@ export default function Suppliers() {
   }
 
   const handleAdd = async () => {
-    if (!form.supplier_name) {
-      setErrorMsg("Supplier name is required.")
+    if (!form.supplier_name?.trim() || !form.phone?.trim()) {
+      setErrorMsg(t("users.allRequired"))
       return
     }
     setSaving(true)
     setErrorMsg("")
     try {
-      await createSupplier(form)
+      await createSupplier({
+        supplier_name: form.supplier_name.trim(),
+        phone: form.phone.trim(),
+        email: form.email?.trim() || null,
+      })
       setAddOpen(false)
     } catch (err) {
-      setErrorMsg(err?.response?.data?.message || "Failed to add supplier.")
+      setErrorMsg(err?.response?.data?.message || t("cashier.submitFailed"))
     } finally {
       setSaving(false)
     }
   }
 
   const handleUpdate = async () => {
+    if (!form.supplier_name?.trim() || !form.phone?.trim()) {
+      setErrorMsg(t("users.allRequired"))
+      return
+    }
     setSaving(true)
     setErrorMsg("")
     try {
-      await updateSupplier(editSupplier.supplier_id, form)
+      await updateSupplier(editSupplier.supplier_id, {
+        supplier_name: form.supplier_name.trim(),
+        phone: form.phone.trim(),
+        email: form.email?.trim() || null,
+      })
       setEditSupplier(null)
     } catch (err) {
-      setErrorMsg(err?.response?.data?.message || "Failed to update supplier.")
+      setErrorMsg(err?.response?.data?.message || t("cashier.submitFailed"))
     } finally {
       setSaving(false)
     }
@@ -100,29 +112,27 @@ export default function Suppliers() {
 
   return (
     <div className="space-y-5">
-      <SimpleHeader title="Supplier Management"
-        subtitle="Manage food and supply partners"
-        action={<Button onClick={openAdd} className="gap-2"><Plus size={15} /> Add New Supplier</Button>} />
+      <SimpleHeader title={t("suppliers.title")}
+        subtitle={t("suppliers.subtitle")}
+        action={<Button onClick={openAdd} className="gap-2"><Plus size={15} /> {t("suppliers.addSupplier")}</Button>} />
 
-      {}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
         <Card className="p-5">
           <div className="flex items-start justify-between mb-3">
-            <span className="text-xs font-medium text-[var(--color-muted)] uppercase tracking-wide">Total Suppliers</span>
+            <span className="text-xs font-medium text-[var(--color-muted)] uppercase tracking-wide">{t("suppliers.totalSuppliers")}</span>
             <div className="w-8 h-8 rounded-xl bg-[var(--color-primary-muted)] flex items-center justify-center">
               <Users size={16} className="text-[var(--color-primary)]" />
             </div>
           </div>
           <div className="text-2xl font-bold text-[var(--color-text)] mb-1">{suppliers.length}</div>
-          <div className="text-xs text-[var(--color-muted)]">Active partners</div>
+          <div className="text-xs text-[var(--color-muted)]">{t("suppliers.activePartners")}</div>
         </Card>
       </div>
 
-      {}
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} className="pl-9" placeholder="Search Supplier by name, email or phone..." />
+          <Input value={search} onChange={e => setSearch(e.target.value)} className="pl-9" placeholder={t("suppliers.searchPlaceholder")} />
         </div>
       </div>
 
@@ -130,16 +140,16 @@ export default function Suppliers() {
 
       <SupplierFormDialog
         open={addOpen} onClose={() => setAddOpen(false)} isEdit={false}
-        title="Add New Supplier" description="Add a new supplier to your system"
+        title={t("suppliers.addSupplier")} description={t("suppliers.addDesc")}
         form={form} setForm={setForm} errorMsg={errorMsg} saving={saving}
-        onSubmit={handleAdd} submitLabel="Add Supplier"
+        onSubmit={handleAdd} submitLabel={t("suppliers.addSupplier")}
       />
 
       <SupplierFormDialog
         open={!!editSupplier} onClose={() => setEditSupplier(null)} isEdit
-        title="Edit Supplier" description="Update supplier information"
+        title={t("suppliers.editSupplier")} description={t("suppliers.editDesc")}
         form={form} setForm={setForm} errorMsg={errorMsg} saving={saving}
-        onSubmit={handleUpdate} submitLabel="Update Supplier"
+        onSubmit={handleUpdate} submitLabel={t("suppliers.updateSupplier")}
       />
       <ConfirmModal
         open={!!deleteTarget}
@@ -147,9 +157,9 @@ export default function Suppliers() {
         onConfirm={handleDelete}
         busy={deleting}
         danger
-        title="Delete this supplier?"
-        message={`This will permanently delete "${deleteTarget?.supplier_name}". This can't be undone.`}
-        confirmLabel="Delete"
+        title={t("suppliers.deleteTitle")}
+        message={t("suppliers.deleteMsg")}
+        confirmLabel={t("common.delete")}
         errorMsg={deleteError}
       />
     </div>

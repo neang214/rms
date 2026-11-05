@@ -17,18 +17,23 @@ const statusMeta = {
 export function StatusHeader({ table, token, navigate }) {
   const { t } = useLang()
   return (
-    <div className="sticky top-0 z-20 bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-3 flex items-center justify-between gap-2">
-      <button onClick={() => navigate(`/order?t=${token}`)} className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)]">
-        <ArrowLeft size={16} /> {t("guest.backToMenu")}
-      </button>
-      <div className="flex items-center gap-3">
-        <LanguageSwitcher langs={["en", "km"]} showIcon={false} />
-        <div className="text-right">
-          <div className="text-xs text-[var(--color-muted)]">{t("guest.table")}</div>
-          <div className="font-bold text-sm text-[var(--color-primary)]">{table?.table_number || "..."}</div>
+    <header className="sticky top-0 z-20 bg-[var(--color-surface)]/95 backdrop-blur-md border-b border-[var(--color-border)]">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2">
+        <button
+          onClick={() => navigate(`/order?t=${token}`)}
+          className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={16} /> {t("guest.backToMenu")}
+        </button>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher langs={["en", "km"]} showIcon={false} />
+          <div className="text-right pl-3 border-l border-[var(--color-border)]">
+            <div className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">{t("guest.table")}</div>
+            <div className="font-bold text-sm sm:text-base text-[var(--color-primary)] leading-tight">{table?.table_number || "..."}</div>
+          </div>
         </div>
       </div>
-    </div>
+    </header>
   )
 }
 
@@ -37,75 +42,83 @@ export function StatusContent({ loading, order, token, navigate, statusKey, curr
   const meta = statusMeta[statusKey] || statusMeta.Pending
   const StatusIcon = meta.icon
   return (
-    <div className="p-4 space-y-4 max-w-md mx-auto">
+    <div className="px-4 sm:px-6 py-6 space-y-5 max-w-2xl mx-auto">
       {loading ? (
-        <div className="text-center py-16 text-[var(--color-muted)] text-sm">{t("guest.loadingOrder")}</div>
+        <div className="text-center py-20 text-[var(--color-muted)] text-sm">{t("guest.loadingOrder")}</div>
       ) : !order ? (
-        <div className="text-center py-16">
-          <p className="text-sm text-[var(--color-muted)] mb-4">{t("guest.noActiveOrder")}</p>
-          <button onClick={() => navigate(`/order?t=${token}`)} className="bg-[var(--color-primary)] text-white text-sm font-medium px-4 py-2.5 rounded-xl">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-10 text-center">
+          <p className="text-sm text-[var(--color-muted)] mb-5">{t("guest.noActiveOrder")}</p>
+          <button
+            onClick={() => navigate(`/order?t=${token}`)}
+            className="bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors cursor-pointer"
+          >
             {t("guest.browseMenu")}
           </button>
         </div>
       ) : (
         <>
-          {}
-          <div className={cn("rounded-2xl p-4 flex items-center gap-3", meta.bg)}>
-            <div className="w-11 h-11 rounded-xl bg-white/60 flex items-center justify-center shrink-0">
-              <StatusIcon size={22} className={meta.color} />
+          <div className={cn("rounded-2xl p-5 flex items-center gap-4", meta.bg)}>
+            <div className="w-12 h-12 rounded-xl bg-white/70 dark:bg-black/20 flex items-center justify-center shrink-0">
+              <StatusIcon size={24} className={meta.color} />
             </div>
             <div className="flex-1">
-              <div className={cn("font-semibold text-sm", meta.color)}>{t(meta.key)}</div>
-              <div className="text-xs text-[var(--color-muted)]">{t("guest.yourOrder")} #{String(order.order_id).padStart(4, "0")}</div>
+              <div className={cn("font-semibold text-base", meta.color)}>{t(meta.key)}</div>
+              <div className="text-xs text-[var(--color-muted)] mt-0.5">{t("guest.yourOrder")} #{String(order.order_id).padStart(4, "0")}</div>
             </div>
             {order.queue_number != null && (
-              <div className="text-center shrink-0">
+              <div className="text-center shrink-0 pl-3 border-l border-black/10 dark:border-white/10">
                 <div className="text-[10px] text-[var(--color-muted)] uppercase tracking-wide">{t("guest.waitingNumber")}</div>
-                <div className={cn("text-xl font-bold", meta.color)}>#{order.queue_number}</div>
+                <div className={cn("text-2xl font-bold", meta.color)}>#{order.queue_number}</div>
               </div>
             )}
           </div>
 
-          {}
-          <div className="flex items-start px-1">
-            {statusSteps.map((step, idx) => {
-              const done = idx <= currentStepIndex
-              return (
-                <div key={step} className="flex-1 flex flex-col items-center relative">
-                  {}
-                  {idx < statusSteps.length - 1 && (
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5">
+            <div className="flex items-start px-1">
+              {statusSteps.map((step, idx) => {
+                const done = idx <= currentStepIndex
+                return (
+                  <div key={step} className="flex-1 flex flex-col items-center relative">
+                    {idx < statusSteps.length - 1 && (
+                      <div className={cn(
+                        "absolute top-[7px] left-1/2 w-full h-0.5",
+                        idx < currentStepIndex ? "bg-[var(--color-primary)]" : "bg-[var(--color-border)]"
+                      )} />
+                    )}
                     <div className={cn(
-                      "absolute top-[7px] left-1/2 w-full h-0.5",
-                      idx < currentStepIndex ? "bg-[var(--color-primary)]" : "bg-[var(--color-border)]"
+                      "relative z-10 w-4 h-4 rounded-full border-2 transition-colors",
+                      done
+                        ? "bg-[var(--color-primary)] border-[var(--color-primary)]"
+                        : "bg-[var(--color-surface)] border-[var(--color-border)]",
+                      idx === currentStepIndex && "ring-4 ring-[var(--color-primary-muted)]"
                     )} />
-                  )}
-                  {}
-                  <div className={cn(
-                    "relative z-10 w-4 h-4 rounded-full border-2 transition-colors",
-                    done
-                      ? "bg-[var(--color-primary)] border-[var(--color-primary)]"
-                      : "bg-[var(--color-surface)] border-[var(--color-border)]",
-                    idx === currentStepIndex && "ring-4 ring-[var(--color-primary-muted)]"
-                  )} />
-                  {}
-                  <span className={cn(
-                    "mt-2 text-[10px] text-center leading-tight",
-                    done ? "text-[var(--color-primary)] font-medium" : "text-[var(--color-muted)]"
-                  )}>
-                    {t(statusMeta[step].key)}
-                  </span>
-                </div>
-              )
-            })}
+                    <span className={cn(
+                      "mt-2 text-[11px] text-center leading-tight",
+                      done ? "text-[var(--color-primary)] font-semibold" : "text-[var(--color-muted)]"
+                    )}>
+                      {t(statusMeta[step].key)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
-          {}
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4">
-            <div className="font-semibold text-sm text-[var(--color-text)] mb-3">{t("guest.yourOrder")}</div>
-            <div className="space-y-3">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5">
+            <div className="font-semibold text-sm sm:text-base text-[var(--color-text)] mb-4">{t("guest.yourOrder")}</div>
+            <div className="space-y-3.5">
               {order.order_items?.map(oi => (
-                <div key={oi.order_item_id} className="flex items-center gap-3">
-                  <img src={imageUrl(oi.menu_item?.image_url, FALLBACK_IMG)} alt={menuItemName(oi.menu_item, lang)} className="w-12 h-12 rounded-xl object-cover shrink-0" />
+                <div key={oi.order_item_id} className="flex items-center gap-3.5">
+                  <img
+                    src={imageUrl(oi.menu_item?.image_url || oi.image_url, FALLBACK_IMG)}
+                    alt={menuItemName(oi.menu_item, lang)}
+                    onError={(e) => {
+                      if (e.currentTarget.src !== FALLBACK_IMG) {
+                        e.currentTarget.src = FALLBACK_IMG
+                      }
+                    }}
+                    className="w-13 h-13 rounded-xl object-cover shrink-0 bg-[var(--color-border)]/40"
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-[var(--color-text)] truncate">{menuItemName(oi.menu_item, lang)}</div>
                     <div className="text-xs text-[var(--color-muted)]">${Number(oi.unit_price).toFixed(2)} × {oi.quantity}</div>
@@ -114,17 +127,23 @@ export function StatusContent({ loading, order, token, navigate, statusKey, curr
                 </div>
               ))}
             </div>
-            <div className="border-t border-[var(--color-border)] mt-3 pt-3 flex justify-between text-sm font-bold">
+            <div className="border-t border-[var(--color-border)] mt-4 pt-4 flex justify-between text-base font-bold">
               <span className="text-[var(--color-text)]">{t("common.total")}</span>
-              <span className="text-[var(--color-primary)]">${itemTotal.toFixed(2)} <span className="text-xs font-normal text-[var(--color-muted)]">៛{totalKHR.toLocaleString()}</span></span>
+              <span className="text-[var(--color-primary)]">
+                ${itemTotal.toFixed(2)}{" "}
+                <span className="text-xs font-normal text-[var(--color-muted)] ml-1">៛{totalKHR.toLocaleString()}</span>
+              </span>
             </div>
           </div>
 
-          <button onClick={onRefresh} className="w-full flex items-center justify-center gap-2 text-xs text-[var(--color-muted)] py-2">
-            <RefreshCw size={12} /> {t("guest.refresh")}
+          <button
+            onClick={onRefresh}
+            className="w-full flex items-center justify-center gap-2 text-xs font-medium text-[var(--color-muted)] hover:text-[var(--color-primary)] py-2 transition-colors cursor-pointer"
+          >
+            <RefreshCw size={13} /> {t("guest.refresh")}
           </button>
         </>
       )}
     </div>
   )
-}
+} 

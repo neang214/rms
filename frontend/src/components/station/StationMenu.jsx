@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react"
 import { Search, ToggleLeft, ToggleRight } from "lucide-react"
-import { cn, imageUrl, menuItemName } from "@/lib/utils"
+import { cn, imageUrl, menuItemName, menuItemMatchesSearch } from "@/lib/utils"
 import { Input } from "@/components/ui"
-import { MenuCategoryBar } from "@/components/admin/MenuParts"
+import { MenuCategoryBar, MenuItemImage } from "@/components/admin/MenuParts"
 import { useMenuItemStore } from "../../context/menuItemContext"
 import { useMenuCategoryStore } from "../../context/menuCategoryContext"
 import { usePageTitle } from "../../hooks/usePageTitle"
@@ -29,11 +29,8 @@ export default function StationMenu({ config }) {
 
   const filtered = stationItems.filter(i => {
     const matchesCat = activeCat === "All" || i.category_id === activeCat
-    
-    
-    const q = search.toLowerCase()
-    const matchesSearch = i.item_name?.toLowerCase().includes(q) || i.item_name_km?.toLowerCase().includes(q)
-    return matchesCat && matchesSearch
+    const catName = categories.find(c => c.category_id === i.category_id)?.category_name
+    return matchesCat && menuItemMatchesSearch(i, search, catName)
   })
 
   const handleToggle = async (item, e) => {
@@ -57,7 +54,7 @@ export default function StationMenu({ config }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-16 text-[var(--color-muted)] text-sm">No menu items found.</div>
+        <div className="text-center py-16 text-[var(--color-muted)] text-sm">{t("common.noMenuItems")}</div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {(filtered || []).map(item => (
@@ -69,12 +66,7 @@ export default function StationMenu({ config }) {
               )}
             >
               <div className="relative aspect-[5/4] overflow-hidden bg-[var(--color-border)]/40 shrink-0">
-                <img
-                  src={imageUrl(item.image_url, config.fallbackImg)}
-                  alt={menuItemName(item, lang)}
-                  onError={(e) => { e.currentTarget.src = config.fallbackImg }}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
+                <MenuItemImage item={item} lang={lang} />
                 {!item.available && (
                   <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex items-center justify-center">
                     <span className="bg-[var(--color-danger)] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">

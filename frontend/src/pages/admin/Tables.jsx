@@ -15,7 +15,7 @@ import {
 
 export default function Tables() {
   const { t } = useLang()
-  usePageTitle("Table")
+  usePageTitle(t("tables.title"))
   const { tables, fetchTablesWithTokens, createTable, updateTable, deleteTable, regenerateQrToken, isLoading } = useTableStore()
   const { getActiveOrderByTable } = useOrderStore()
 
@@ -69,14 +69,15 @@ export default function Tables() {
   }
 
   const handleAdd = async () => {
-    if (!form.table_number || !form.capacity) {
-      setErrorMsg("Table number and capacity are required.")
+    const cap = parseInt(form.capacity)
+    if (!form.table_number?.trim() || isNaN(cap) || cap <= 0) {
+      setErrorMsg("Table number and a valid positive capacity are required.")
       return
     }
     setSaving(true)
     setErrorMsg("")
     try {
-      await createTable({ table_number: form.table_number, capacity: parseInt(form.capacity), is_available: true })
+      await createTable({ table_number: form.table_number.trim(), capacity: cap, is_available: true })
       setAddOpen(false)
     } catch (err) {
       setErrorMsg(err?.response?.data?.message || "Failed to add table.")
@@ -86,12 +87,17 @@ export default function Tables() {
   }
 
   const handleUpdate = async () => {
+    const cap = parseInt(form.capacity)
+    if (!form.table_number?.trim() || isNaN(cap) || cap <= 0) {
+      setErrorMsg("Table number and a valid positive capacity are required.")
+      return
+    }
     setSaving(true)
     setErrorMsg("")
     try {
       await updateTable(editTable.table_id, {
-        table_number: form.table_number,
-        capacity: parseInt(form.capacity),
+        table_number: form.table_number.trim(),
+        capacity: cap,
         is_available: form.is_available,
       })
       setEditTable(null)
@@ -145,14 +151,14 @@ export default function Tables() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-display font-bold text-[var(--color-text)]">Table Management</h1>
+        <h1 className="text-2xl font-display font-bold text-[var(--color-text)]">{t("tables.management")}</h1>
         <div className="flex items-center gap-2">
           <div className={cn("flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-1.5 rounded-full", connected ? "bg-[var(--color-primary-muted)] text-[var(--color-primary)]" : "bg-[var(--color-danger-muted)] text-[var(--color-danger)]")}>
             {connected ? <Wifi size={11} /> : <WifiOff size={11} />}
-            {connected ? "Live" : "Reconnecting..."}
+            {connected ? t("tables.live") : t("tables.reconnecting")}
           </div>
-          <Button variant="outline" onClick={() => setPrintAllOpen(true)} className="gap-2"><QrCode size={15} /> QR Codes</Button>
-          <Button onClick={openAdd} className="gap-2"><Plus size={15} /> New Table</Button>
+          <Button variant="outline" onClick={() => setPrintAllOpen(true)} className="gap-2"><QrCode size={15} /> {t("tables.qrCodes")}</Button>
+          <Button onClick={openAdd} className="gap-2"><Plus size={15} /> {t("tables.newTable")}</Button>
         </div>
       </div>
 
@@ -161,16 +167,16 @@ export default function Tables() {
 
       <TableFormDialog
         open={addOpen} onClose={() => setAddOpen(false)}
-        title="Add New Table" description="Add a new dining table"
+        title={t("tables.addTitle")} description={t("tables.addSub")}
         form={form} setForm={setForm} showStatus={false}
-        errorMsg={errorMsg} saving={saving} onSubmit={handleAdd} submitLabel="Add Table"
+        errorMsg={errorMsg} saving={saving} onSubmit={handleAdd} submitLabel={t("tables.addTitle")}
       />
 
       <TableFormDialog
         open={!!editTable} onClose={() => setEditTable(null)}
-        title="Edit Table" description={null}
+        title={t("tables.editTitle")} description={null}
         form={form} setForm={setForm} showStatus
-        errorMsg={errorMsg} saving={saving} onSubmit={handleUpdate} submitLabel="Update Table"
+        errorMsg={errorMsg} saving={saving} onSubmit={handleUpdate} submitLabel={t("tables.updateTable")}
       />
 
       <TableViewDialog table={viewTable} order={viewOrder} loading={viewLoading} onClose={() => setViewTable(null)} />
@@ -185,9 +191,9 @@ export default function Tables() {
         onConfirm={handleDelete}
         busy={deleting}
         danger
-        title="Delete this table?"
-        message={`This will permanently delete "${deleteTarget?.table_number}". This can't be undone.`}
-        confirmLabel="Delete"
+        title={t("tables.deleteTitle")}
+        message={t("tables.deleteMsg")}
+        confirmLabel={t("common.delete")}
         errorMsg={deleteError}
       />
     </div>

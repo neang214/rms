@@ -53,13 +53,6 @@ const navByRole = {
     ],
     secondary: [],
   },
-  server: {
-    main: [
-      { to: "/server/menu", icon: UtensilsCrossed, label: "nav.menu" },
-      { to: "/server/orders", icon: ClipboardList, label: "nav.orders" },
-    ],
-    secondary: [],
-  },
 }
 
 const roleInfo = {
@@ -67,10 +60,9 @@ const roleInfo = {
   cashier: { label: "Cashier user", sub: "role.cashier", avatarBg: "bg-[var(--color-primary-muted)]", avatarText: "text-[var(--color-primary)]", badge: "bg-[var(--color-primary-muted)] text-[var(--color-primary)]" },
   kitchen: { label: "Kitchen Staff", sub: "role.kitchen", avatarBg: "bg-[var(--color-flame-muted)]", avatarText: "text-[var(--color-flame)]", badge: "bg-[var(--color-flame-muted)] text-[var(--color-flame)]" },
   barista: { label: "Barista user", sub: "role.barista", avatarBg: "bg-[var(--color-accent-muted)]", avatarText: "text-[var(--color-warning)]", badge: "bg-[var(--color-accent-muted)] text-[var(--color-warning)]" },
-  server: { label: "Server", sub: "role.server", avatarBg: "bg-[var(--color-info-muted)]", avatarText: "text-[var(--color-info)]", badge: "bg-[var(--color-info-muted)] text-[var(--color-info)]" },
 }
 
-const exactEnds = ["/admin", "/cashier/menu", "/kitchen/menu", "/barista/menu", "/server/menu"]
+const exactEnds = ["/admin", "/cashier/menu", "/kitchen/menu", "/barista/menu"]
 
 export default function Layout({ children }) {
   const { theme, setTheme } = useTheme()
@@ -102,12 +94,11 @@ export default function Layout({ children }) {
     cashier: "/cashier/orders",
     kitchen: "/kitchen/orders",
     barista: "/barista/orders",
-    server: "/server/orders",
   }
 
   useEffect(() => { unlockAudioOnFirstInteraction() }, [])
 
-  const needsSoundPrompt = ["cashier", "kitchen", "barista", "admin", "server"].includes(role)
+  const needsSoundPrompt = ["cashier", "kitchen", "barista", "admin"].includes(role)
   const [soundUnlocked, setSoundUnlocked] = useState(isAudioUnlocked())
 
   useEffect(() => {

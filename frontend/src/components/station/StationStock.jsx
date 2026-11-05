@@ -5,7 +5,7 @@ import { useStockStore } from "../../context/stockContext"
 import { usePageTitle } from "../../hooks/usePageTitle"
 import { PageHeader, EmptyState } from "@/components/shared"
 import { useLang } from "@/i18n/LanguageContext"
-import { stockImageUrl, StockTypeBadge } from "@/components/admin/StockParts"
+import { StockImage, StockTypeBadge } from "@/components/admin/StockParts"
 
 export default function StationStock() {
   const { t } = useLang()
@@ -64,14 +64,13 @@ export default function StationStock() {
                 onClick={() => setExpandedId(expandedId === item.stock_id ? null : item.stock_id)}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--color-primary-muted)] transition-colors text-left"
               >
-                {stockImageUrl(item) ? (
-                  <img src={stockImageUrl(item)} alt={item.item_name} className="w-24 h-24 rounded-xl object-cover shrink-0" />
-                ) : (
-                  <div className={cn("w-24 h-24 rounded-xl flex items-center justify-center shrink-0",
-                    isLow(item) ? "bg-[var(--color-accent-muted)]" : "bg-[var(--color-primary-muted)]")}>
-                    <Package size={40} className={isLow(item) ? "text-[var(--color-warning)]" : "text-[var(--color-primary)]"} />
-                  </div>
-                )}
+                <StockImage
+                  item={item}
+                  size={96}
+                  className="rounded-xl"
+                  placeholderClassName={isLow(item) ? "bg-[var(--color-accent-muted)]" : "bg-[var(--color-primary-muted)]"}
+                  iconClassName={isLow(item) ? "text-[var(--color-warning)]" : "text-[var(--color-primary)]"}
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-[var(--color-text)]">{item.item_name}</span>

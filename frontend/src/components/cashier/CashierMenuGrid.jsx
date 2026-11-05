@@ -1,10 +1,10 @@
-import { imageUrl, menuItemName, cn } from "@/lib/utils"
+import { menuItemName, cn } from "@/lib/utils"
 import { Plus, Minus } from "lucide-react"
 import { useLang } from "@/i18n/LanguageContext"
-
-const FALLBACK_IMG = "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&h=200&fit=crop"
+import { MenuItemImage } from "@/components/admin/MenuParts"
 
 function MenuItemCard({ item, qty, onAdd, onRemove, lang }) {
+  const { t } = useLang()
   const isSelected = qty > 0
   const isAvailable = item.available !== false
 
@@ -17,16 +17,11 @@ function MenuItemCard({ item, qty, onAdd, onRemove, lang }) {
       )}
     >
       <div className="relative aspect-[5/4] overflow-hidden bg-[var(--color-border)]/40 shrink-0">
-        <img
-          src={imageUrl(item.image_url, FALLBACK_IMG)}
-          alt={menuItemName(item, lang)}
-          onError={(e) => { e.currentTarget.src = FALLBACK_IMG }}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+        <MenuItemImage item={item} lang={lang} />
         {!isAvailable && (
           <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex items-center justify-center">
             <span className="bg-[var(--color-danger)] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-              Sold Out
+              {t("common.soldOut")}
             </span>
           </div>
         )}
@@ -48,7 +43,7 @@ function MenuItemCard({ item, qty, onAdd, onRemove, lang }) {
           </span>
 
           {!isAvailable ? (
-            <span className="text-[10px] text-[var(--color-danger)] font-medium">Unavailable</span>
+            <span className="text-[10px] text-[var(--color-danger)] font-medium">{t("common.unavailable")}</span>
           ) : qty === 0 ? (
             <button
               onClick={() => onAdd(item.menu_item_id)}

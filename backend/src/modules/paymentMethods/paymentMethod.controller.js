@@ -4,7 +4,7 @@ export const getAllMethods = async (req, res) => {
   try {
     const methods = await prisma.paymentMethod.findMany();
 
-    res.status(201).json(methods);
+    res.status(200).json(methods);
   } catch {
     res.status(500).json({ message: "Internal server error" });
   }

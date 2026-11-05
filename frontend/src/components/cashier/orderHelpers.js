@@ -138,11 +138,13 @@ export function printOrderReceipt(order) {
     const qty = Number(oi.quantity) || 1
     const price = Number(oi.unit_price || oi.menu_item?.price || 0)
     const lineTotal = price * qty
-    const name = oi.menu_item?.item_name || "Item"
+    const enName = oi.menu_item?.item_name || "Item"
+    const kmName = oi.menu_item?.item_name_km
+    const hasKm = kmName && kmName !== enName
     return `<tr>
       <td class="qty">${qty}&times;</td>
       <td class="desc">
-        <div class="name">${escapeHtml(name)}</div>
+        <div class="name">${escapeHtml(enName)}${hasKm ? `<div style="font-size:10px;font-weight:normal;color:#444;">${escapeHtml(kmName)}</div>` : ""}</div>
         ${oi.note ? `<div class="note">${escapeHtml(oi.note)}</div>` : ""}
       </td>
       <td class="price">$${price.toFixed(2)}</td>
@@ -169,7 +171,7 @@ export function printOrderReceipt(order) {
         width: 100%;
         background: #ffffff;
         color: #000000;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Courier New", monospace;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Kantumruy Pro", "Noto Sans Khmer", "Hanuman", "Courier New", monospace;
         font-size: 11px;
         line-height: 1.35;
         -webkit-print-color-adjust: exact;
