@@ -1,9 +1,26 @@
+import crypto from "crypto";
 import { BakongKHQR, khqrData, IndividualInfo } from "bakong-khqr";
 import prisma from "../../utils/db.js";
 import { getIO } from "../../sockets/index.js";
 
 const KHR_RATE = 4100;
+const DEFAULT_ABA_P2P_TAG = "40600006abaP2P011237977D9FDA2D020960057996403095005369110404Dual";
 const md5CheckCache = new Map(); // md5 -> { ts, res }
+
+function computeCRC16(str) {
+  let crc = 0xffff;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xffff;
+      } else {
+        crc = (crc << 1) & 0xffff;
+      }
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
 
 export const generateKHQR = async (req, res) => {
   const { order_id, currency = "USD" } = req.body;
@@ -62,7 +79,6 @@ export const generateKHQR = async (req, res) => {
     const optionalData = {
       currency: isusd ? khqrData.currency.usd : khqrData.currency.khr,
       amount,
-      billNumber: String(order_id).padStart(4, "0"),
       expirationTimestamp: Date.now() + 10 * 60 * 1000,
       ...(accountNumber
         ? {
@@ -87,11 +103,22 @@ export const generateKHQR = async (req, res) => {
     if (result.status.code !== 0)
       return res.status(500).json({ message: "Failed to generate KHQR", detail: result.status.message });
 
-    console.log(`[KHQR] result: code=${result.status.code} md5=${result.data.md5} qr=${result.data.qr}`);
+    let finalQr = result.data.qr;
+    let finalMd5 = result.data.md5;
+
+    // Inject ABA P2P dual-currency routing tag (Tag 40) extracted from the account's native ABA KHQR
+    const abaP2PTag = (process.env.KHQR_ABA_P2P_TAG ?? DEFAULT_ABA_P2P_TAG).trim();
+    if (bakongId === "abaakhppxxx@abaa" && abaP2PTag && finalQr.includes("52045999")) {
+      const qrWithoutCrcValue = finalQr.slice(0, -4).replace("52045999", `${abaP2PTag}52045999`);
+      finalQr = qrWithoutCrcValue + computeCRC16(qrWithoutCrcValue);
+      finalMd5 = crypto.createHash("md5").update(finalQr).digest("hex");
+    }
+
+    console.log(`[KHQR] result: code=${result.status.code} md5=${finalMd5} qr=${finalQr}`);
 
     res.json({
-      qr: result.data.qr,
-      md5: result.data.md5,
+      qr: finalQr,
+      md5: finalMd5,
       amount,
       currency: currency.toUpperCase(),
       order_id: parseInt(order_id),
