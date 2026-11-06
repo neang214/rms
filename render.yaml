@@ -22,13 +22,15 @@ services:
       - key: BAKONG_ACCOUNT_ID
         value: abaakhppxxx@abaa
       - key: KHQR_BAKONG_ID_USD
-        sync: false
+        value: "500536911"
       - key: KHQR_BAKONG_ID_KHR
-        sync: false
+        value: "600579964"
       - key: KHQR_MERCHANT_NAME
-        value: NEN NEANG
+        value: NEANG NEN
       - key: KHQR_MERCHANT_CITY
         value: Phnom Penh
+      - key: KHQR_ABA_P2P_TAG
+        value: 40600006abaP2P011237977D9FDA2D020960057996403095005369110404Dual
       - key: BAKONG_TOKEN
         sync: false
 

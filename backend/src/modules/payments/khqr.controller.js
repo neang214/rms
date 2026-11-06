@@ -1,8 +1,25 @@
+import crypto from "crypto";
 import { BakongKHQR, khqrData, IndividualInfo } from "bakong-khqr";
 import prisma from "../../utils/db.js";
 import { getIO } from "../../sockets/index.js";
 
 const KHR_RATE = 4100;
+const DEFAULT_ABA_P2P_TAG = "40600006abaP2P011237977D9FDA2D020960057996403095005369110404Dual";
+
+function computeCRC16(str) {
+  let crc = 0xffff;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xffff;
+      } else {
+        crc = (crc << 1) & 0xffff;
+      }
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
 
 export const generateKHQR = async (req, res) => {
   const { order_id, currency = "USD" } = req.body;
@@ -41,12 +58,8 @@ export const generateKHQR = async (req, res) => {
     
     const rawTarget = (
       process.env[isusd ? "KHQR_BAKONG_ID_USD" : "KHQR_BAKONG_ID_KHR"] ||
-      process.env.BAKONG_ACCOUNT_ID ||
-      ""
+      (isusd ? "500536911" : "600579964")
     ).trim();
-
-    if (!rawTarget)
-      return res.status(500).json({ message: `KHQR_BAKONG_ID_${currency.toUpperCase()} or BAKONG_ACCOUNT_ID not set in .env` });
 
     // Support both direct Bakong IDs (e.g. "username@abaa" / "username@bkrt")
     // and ABA Bank account numbers routed via "abaakhppxxx@abaa".
@@ -58,13 +71,9 @@ export const generateKHQR = async (req, res) => {
     let accountNumber = "";
     if (!isDirectBakongId) {
       accountNumber = rawTarget.replace(/[\s-]/g, "");
-      // ABA account numbers are 9 digits; restore stripped leading zero if 8 digits
-      if (/^\d{8}$/.test(accountNumber)) {
-        accountNumber = `0${accountNumber}`;
-      }
     }
 
-    const merchantName = process.env.KHQR_MERCHANT_NAME || process.env.BAKONG_MERCHANT_NAME || "NEN NEANG";
+    const merchantName = process.env.KHQR_MERCHANT_NAME || process.env.BAKONG_MERCHANT_NAME || "NEANG NEN";
     const merchantCity = process.env.KHQR_MERCHANT_CITY || process.env.BAKONG_MERCHANT_CITY || "Phnom Penh";
 
     console.log(`[KHQR] bakongId=${bakongId} accountNumber=${accountNumber || "(direct)"} amount=${amount} ${currency}`);
@@ -72,9 +81,6 @@ export const generateKHQR = async (req, res) => {
     const optionalData = {
       currency: isusd ? khqrData.currency.usd : khqrData.currency.khr,
       amount,
-      billNumber: String(order_id).padStart(4, "0"),
-      storeLabel: merchantName,
-      terminalLabel: "Cashier-1",
       expirationTimestamp: Date.now() + 10 * 60 * 1000,
       ...(accountNumber
         ? {
@@ -96,14 +102,25 @@ export const generateKHQR = async (req, res) => {
     const khqr = new BakongKHQR();
     const result = khqr.generateIndividual(info);
 
-    console.log(`[KHQR] result: code=${result.status.code} qr=${result.data?.qr}`);
-
     if (result.status.code !== 0)
       return res.status(500).json({ message: "Failed to generate KHQR", detail: result.status.message });
 
+    let finalQr = result.data.qr;
+    let finalMd5 = result.data.md5;
+
+    // Inject ABA P2P dual-currency routing tag (Tag 40) extracted from the account's native ABA KHQR
+    const abaP2PTag = (process.env.KHQR_ABA_P2P_TAG ?? DEFAULT_ABA_P2P_TAG).trim();
+    if (bakongId === "abaakhppxxx@abaa" && abaP2PTag && finalQr.includes("52045999")) {
+      const qrWithoutCrcValue = finalQr.slice(0, -4).replace("52045999", `${abaP2PTag}52045999`);
+      finalQr = qrWithoutCrcValue + computeCRC16(qrWithoutCrcValue);
+      finalMd5 = crypto.createHash("md5").update(finalQr).digest("hex");
+    }
+
+    console.log(`[KHQR] result: code=${result.status.code} md5=${finalMd5} qr=${finalQr}`);
+
     res.json({
-      qr: result.data.qr,
-      md5: result.data.md5,
+      qr: finalQr,
+      md5: finalMd5,
       amount,
       currency: currency.toUpperCase(),
       order_id: parseInt(order_id),
