@@ -19,6 +19,8 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         sync: false
+      - key: BAKONG_ACCOUNT_ID
+        value: abaakhppxxx@abaa
       - key: KHQR_BAKONG_ID_USD
         sync: false
       - key: KHQR_BAKONG_ID_KHR

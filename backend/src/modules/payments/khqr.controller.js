@@ -39,17 +39,21 @@ export const generateKHQR = async (req, res) => {
     
     
     
-    const rawTarget = (process.env[isusd ? "KHQR_BAKONG_ID_USD" : "KHQR_BAKONG_ID_KHR"] || "").trim();
+    const rawTarget = (
+      process.env[isusd ? "KHQR_BAKONG_ID_USD" : "KHQR_BAKONG_ID_KHR"] ||
+      process.env.BAKONG_ACCOUNT_ID ||
+      ""
+    ).trim();
 
     if (!rawTarget)
-      return res.status(500).json({ message: `KHQR_BAKONG_ID_${currency.toUpperCase()} not set in .env` });
+      return res.status(500).json({ message: `KHQR_BAKONG_ID_${currency.toUpperCase()} or BAKONG_ACCOUNT_ID not set in .env` });
 
     // Support both direct Bakong IDs (e.g. "username@abaa" / "username@bkrt")
     // and ABA Bank account numbers routed via "abaakhppxxx@abaa".
     const isDirectBakongId = rawTarget.includes("@");
     const bakongId = isDirectBakongId
       ? rawTarget
-      : (process.env.KHQR_BAKONG_ACCOUNT_ID || "abaakhppxxx@abaa");
+      : (process.env.BAKONG_ACCOUNT_ID || process.env.KHQR_BAKONG_ACCOUNT_ID || "abaakhppxxx@abaa");
 
     let accountNumber = "";
     if (!isDirectBakongId) {
@@ -60,13 +64,16 @@ export const generateKHQR = async (req, res) => {
       }
     }
 
+    const merchantName = process.env.KHQR_MERCHANT_NAME || process.env.BAKONG_MERCHANT_NAME || "NEN NEANG";
+    const merchantCity = process.env.KHQR_MERCHANT_CITY || process.env.BAKONG_MERCHANT_CITY || "Phnom Penh";
+
     console.log(`[KHQR] bakongId=${bakongId} accountNumber=${accountNumber || "(direct)"} amount=${amount} ${currency}`);
 
     const optionalData = {
       currency: isusd ? khqrData.currency.usd : khqrData.currency.khr,
       amount,
       billNumber: String(order_id).padStart(4, "0"),
-      storeLabel: process.env.KHQR_MERCHANT_NAME || "Zoom Garden Cafe",
+      storeLabel: merchantName,
       terminalLabel: "Cashier-1",
       expirationTimestamp: Date.now() + 10 * 60 * 1000,
       ...(accountNumber
@@ -81,8 +88,8 @@ export const generateKHQR = async (req, res) => {
     // Currency and amount go ONLY in optionalData, NOT as constructor params
     const info = new IndividualInfo(
       bakongId,
-      process.env.KHQR_MERCHANT_NAME || "NEN NEANG",
-      process.env.KHQR_MERCHANT_CITY || "Phnom Penh",
+      merchantName,
+      merchantCity,
       optionalData
     );
 
