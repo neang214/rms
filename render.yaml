@@ -36,3 +36,4 @@ services:
         sync: false
       - key: VITE_SOCKET_URL
         sync: false
+
