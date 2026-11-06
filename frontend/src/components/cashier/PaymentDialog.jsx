@@ -130,7 +130,15 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
     onCloseRef.current?.()
   }
 
-  const generateKHQR = async () => {
+  const handleCurrencyChange = (newCur) => {
+    if (khqrLoading || newCur === khqrCurrency) return
+    setKhqrCurrency(newCur)
+    if (khqrData) {
+      generateKHQR(newCur)
+    }
+  }
+
+  const generateKHQR = async (targetCur = khqrCurrency) => {
     setKhqrLoading(true)
     setKhqrError(null)
     setKhqrData(null)
@@ -141,7 +149,7 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
     try {
       const res = await api.post("/payments/khqr/generate", {
         order_id: order.order_id,
-        currency: khqrCurrency,
+        currency: targetCur,
       })
       setKhqrData(res.data)
 
@@ -158,7 +166,7 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
         }
         try {
           const check = await api.get(
-            `/payments/khqr/check/${res.data.md5}?order_id=${order.order_id}&currency=${khqrCurrency}`
+            `/payments/khqr/check/${res.data.md5}?order_id=${order.order_id}&currency=${targetCur}`
           )
           if (check.data?.paid) {
             finishKhqrPayment()
@@ -391,25 +399,39 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
               {errorMsg && <div className="text-sm text-[var(--color-danger)] bg-[var(--color-danger-muted)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2">{errorMsg}</div>}
             </>
           ) : (
-                        <>
-              {!khqrData && !khqrPaid && (
-                <>
-                  <div className="text-sm font-semibold text-[var(--color-text)]">{t("pay.chargeIn")}</div>
+            <>
+              {!khqrPaid && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-[var(--color-text)]">{t("pay.chargeIn")}</div>
+                    {khqrData && (
+                      <span className="text-[11px] text-[var(--color-muted)]">Tap to switch currency</span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     {["USD", "KHR"].map(c => (
-                      <button key={c} onClick={() => setKhqrCurrency(c)}
-                        className={cn("py-3 rounded-2xl text-sm font-semibold border-2 transition-all",
-                          khqrCurrency === c ? "border-[var(--color-primary)] bg-[var(--color-primary-muted)] text-[var(--color-primary)]" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)]/50")}>
+                      <button
+                        key={c}
+                        type="button"
+                        disabled={khqrLoading}
+                        onClick={() => handleCurrencyChange(c)}
+                        className={cn("py-2.5 rounded-2xl text-sm font-semibold border-2 transition-all cursor-pointer disabled:opacity-50",
+                          khqrCurrency === c ? "border-[var(--color-primary)] bg-[var(--color-primary-muted)] text-[var(--color-primary)]" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)]/50")}
+                      >
                         {c === "USD" ? `$ ${total.toFixed(2)}` : `៛ ${totalKHR.toLocaleString()}`}
                       </button>
                     ))}
                   </div>
-                  {khqrError && <div className="text-sm text-[var(--color-danger)] bg-[var(--color-danger-muted)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2">{khqrError}</div>}
-                </>
+                  {khqrError && !khqrData && (
+                    <div className="text-sm text-[var(--color-danger)] bg-[var(--color-danger-muted)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2 mt-2">
+                      {khqrError}
+                    </div>
+                  )}
+                </div>
               )}
 
               {khqrData && !khqrPaid && (
-                <div className="text-center space-y-2">
+                <div className="text-center space-y-2 pt-1">
                   <div className="text-xs text-[var(--color-muted)]">{t("pay.scanHint")}</div>
                   <div className="flex justify-center p-4 bg-white rounded-2xl border border-[var(--color-border)]">
                     <QRCodeSVG value={khqrData.qr} size={190} />

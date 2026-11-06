@@ -47,7 +47,7 @@ export const generateKHQR = async (req, res) => {
     const optionalData = {
       currency: isusd ? khqrData.currency.usd : khqrData.currency.khr,
       amount,
-      billNumber: `#${String(order_id).padStart(4, "0")}`,
+      billNumber: String(order_id).padStart(4, "0"),
       storeLabel: process.env.KHQR_MERCHANT_NAME || "Zoom Garden Cafe",
       terminalLabel: "Cashier-1",
       expirationTimestamp: Date.now() + 10 * 60 * 1000,
@@ -101,7 +101,13 @@ export const checkKHQR = async (req, res) => {
 
   try {
     const bakongRes = await checkBakongMD5(md5, token);
-    if (!bakongRes.paid) return res.json({ paid: false });
+    if (!bakongRes.paid) {
+      return res.json({
+        paid: false,
+        ...(bakongRes.rateLimited ? { rate_limited: true, reason: bakongRes.reason } : {}),
+        ...(bakongRes.blocked ? { ip_blocked: true, reason: bakongRes.reason } : {}),
+      });
+    }
 
     let khqrMethod = await prisma.paymentMethod.findFirst({ where: { method_name: "KHQR" } });
     if (!khqrMethod)
@@ -199,11 +205,29 @@ async function checkBakongMD5(md5, token) {
       let data = "";
       response.on("data", (chunk) => { data += chunk; });
       response.on("end", () => {
-        try { resolve({ paid: JSON.parse(data).responseCode === 0 }); }
-        catch { resolve({ paid: false }); }
+        if (response.statusCode === 403) {
+          console.warn("[KHQR] Bakong API returned 403 Forbidden (overseas IP restriction). Use manual confirm.");
+          return resolve({ paid: false, blocked: true, reason: "Bakong API 403 Forbidden (overseas IP blocked by NBC)" });
+        }
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.responseCode === 0) {
+            return resolve({ paid: true, data: parsed.data });
+          }
+          if (parsed.errorCode === 17) {
+            console.warn(`[KHQR] Bakong API daily limit reached: ${parsed.responseMessage}`);
+            return resolve({ paid: false, rateLimited: true, reason: parsed.responseMessage });
+          }
+          resolve({ paid: false, reason: parsed.responseMessage });
+        } catch {
+          resolve({ paid: false });
+        }
       });
     });
-    req.on("error", () => resolve({ paid: false }));
+    req.on("error", (err) => {
+      console.error("[KHQR] checkBakongMD5 network error:", err.message);
+      resolve({ paid: false });
+    });
     req.write(body);
     req.end();
   });
