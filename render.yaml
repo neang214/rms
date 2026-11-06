@@ -19,6 +19,16 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         sync: false
+      - key: KHQR_BAKONG_ID_USD
+        sync: false
+      - key: KHQR_BAKONG_ID_KHR
+        sync: false
+      - key: KHQR_MERCHANT_NAME
+        value: NEN NEANG
+      - key: KHQR_MERCHANT_CITY
+        value: Phnom Penh
+      - key: BAKONG_TOKEN
+        sync: false
 
   # Frontend Single Page App (React + Vite)
   - type: static

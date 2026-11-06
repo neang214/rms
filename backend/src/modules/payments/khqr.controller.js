@@ -39,22 +39,42 @@ export const generateKHQR = async (req, res) => {
     
     
     
-    const bakongId = "abaakhppxxx@abaa";
-    const accountNumber = process.env[isusd ? "KHQR_BAKONG_ID_USD" : "KHQR_BAKONG_ID_KHR"] || "";
+    const rawTarget = (process.env[isusd ? "KHQR_BAKONG_ID_USD" : "KHQR_BAKONG_ID_KHR"] || "").trim();
 
-    console.log(`[KHQR] bakongId=${bakongId} accountNumber=${accountNumber} amount=${amount} ${currency}`);
-
-    if (!accountNumber)
+    if (!rawTarget)
       return res.status(500).json({ message: `KHQR_BAKONG_ID_${currency.toUpperCase()} not set in .env` });
+
+    // Support both direct Bakong IDs (e.g. "username@abaa" / "username@bkrt")
+    // and ABA Bank account numbers routed via "abaakhppxxx@abaa".
+    const isDirectBakongId = rawTarget.includes("@");
+    const bakongId = isDirectBakongId
+      ? rawTarget
+      : (process.env.KHQR_BAKONG_ACCOUNT_ID || "abaakhppxxx@abaa");
+
+    let accountNumber = "";
+    if (!isDirectBakongId) {
+      accountNumber = rawTarget.replace(/[\s-]/g, "");
+      // ABA account numbers are 9 digits; restore stripped leading zero if 8 digits
+      if (/^\d{8}$/.test(accountNumber)) {
+        accountNumber = `0${accountNumber}`;
+      }
+    }
+
+    console.log(`[KHQR] bakongId=${bakongId} accountNumber=${accountNumber || "(direct)"} amount=${amount} ${currency}`);
 
     const optionalData = {
       currency: isusd ? khqrData.currency.usd : khqrData.currency.khr,
       amount,
-      billNumber: `#${String(order_id).padStart(4, "0")}`,
+      billNumber: String(order_id).padStart(4, "0"),
       storeLabel: process.env.KHQR_MERCHANT_NAME || "Zoom Garden Cafe",
       terminalLabel: "Cashier-1",
       expirationTimestamp: Date.now() + 10 * 60 * 1000,
-      accountInformation: accountNumber,
+      ...(accountNumber
+        ? {
+            accountInformation: accountNumber,
+            acquiringBank: process.env.KHQR_ACQUIRING_BANK || "ABA Bank",
+          }
+        : {}),
     };
 
     // IndividualInfo correct signature: (bakongAccountID, merchantName, merchantCity, optionalData)
