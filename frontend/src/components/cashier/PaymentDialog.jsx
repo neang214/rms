@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Check, Bell, QrCode, Loader2, X, CreditCard, Printer } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import { cn, menuItemName } from "@/lib/utils"
 import { usePaymentStore } from "../../context/paymentContext"
 import api from "../../services/axios"
+import { useSocketEvent } from "../../services/socket"
 import { orderTotal, KHR_RATE, printOrderReceipt } from "./orderHelpers"
 import { useLang } from "@/i18n/LanguageContext"
 
@@ -27,17 +28,40 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
   const [khqrCountdown, setKhqrCountdown] = useState(600)
   const khqrPollRef = useRef(null)
   const khqrCountdownRef = useRef(null)
+  const closeTimerRef = useRef(null)
+  const handledPaidRef = useRef(false)
+  const onCloseRef = useRef(onClose)
+  const onPaidRef = useRef(onPaid)
 
-  const stopKhqrPolling = () => {
+  useEffect(() => {
+    onCloseRef.current = onClose
+    onPaidRef.current = onPaid
+  }, [onClose, onPaid])
+
+  const stopKhqrPolling = useCallback(() => {
     if (khqrPollRef.current) clearInterval(khqrPollRef.current)
     if (khqrCountdownRef.current) clearInterval(khqrCountdownRef.current)
     khqrPollRef.current = null
     khqrCountdownRef.current = null
-  }
+  }, [])
 
-  
+  const finishKhqrPayment = useCallback(() => {
+    if (handledPaidRef.current) return
+    handledPaidRef.current = true
+    stopKhqrPolling()
+    setKhqrPaid(true)
+    setKhqrError(null)
+    onPaidRef.current?.()
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(() => {
+      onCloseRef.current?.()
+    }, 800)
+  }, [stopKhqrPolling])
+
   useEffect(() => {
-    if (!order) return
+    if (!order?.order_id) return
+    handledPaidRef.current = false
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     setPayMethodId(paymentMethods.find(m => !/khqr|aba|bakong/i.test(m.method_name))?.method_id || null)
     setErrorMsg("")
     setCashGiven("")
@@ -46,11 +70,26 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
     setKhqrData(null)
     setKhqrPaid(false)
     setKhqrError(null)
-    
-  }, [order])
+  }, [order?.order_id])
 
-  
-  useEffect(() => stopKhqrPolling, [])
+  useEffect(() => {
+    return () => {
+      stopKhqrPolling()
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    }
+  }, [stopKhqrPolling])
+
+  useSocketEvent("payment:completed", (data) => {
+    if (order?.order_id && Number(data?.order_id) === Number(order.order_id)) {
+      finishKhqrPayment()
+    }
+  })
+
+  useSocketEvent("order:status_changed", (data) => {
+    if (order?.order_id && Number(data?.order_id) === Number(order.order_id) && data?.status === "Paid") {
+      finishKhqrPayment()
+    }
+  })
 
   if (!order) return null
 
@@ -77,7 +116,8 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
 
   const handleClose = () => {
     stopKhqrPolling()
-    onClose()
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    onCloseRef.current?.()
   }
 
   const generateKHQR = async () => {
@@ -85,6 +125,7 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
     setKhqrError(null)
     setKhqrData(null)
     setKhqrPaid(false)
+    handledPaidRef.current = false
     setKhqrCountdown(600)
     stopKhqrPolling()
     try {
@@ -94,24 +135,20 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
       })
       setKhqrData(res.data)
 
-      
-      
-      
-      khqrPollRef.current = setInterval(async () => {
+      const pollCheck = async () => {
+        if (handledPaidRef.current) return
         try {
           const check = await api.get(
             `/payments/khqr/check/${res.data.md5}?order_id=${order.order_id}&currency=${khqrCurrency}`
           )
-          if (check.data.paid) {
-            setKhqrPaid(true)
-            stopKhqrPolling()
-            onPaid?.()
-            setTimeout(() => handleClose(), 2500)
+          if (check.data?.paid) {
+            finishKhqrPayment()
           }
         } catch {}
-      }, 3000)
+      }
 
-      
+      khqrPollRef.current = setInterval(pollCheck, 4000)
+
       khqrCountdownRef.current = setInterval(() => {
         setKhqrCountdown(prev => {
           if (prev <= 1) {
@@ -165,12 +202,13 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
       // Record under the actual KHQR method row from the DB.
       if (khqrMethod) await createPayment({ order_id: order.order_id, method_id: khqrMethod.method_id })
       else await createPayment({ order_id: order.order_id, method_name: "KHQR" })
-      onPaid?.()
-      stopKhqrPolling()
-      setKhqrPaid(true)
-      setTimeout(() => handleClose(), 5000)
+      finishKhqrPayment()
     } catch (err) {
-      setKhqrError(err?.response?.data?.message || "Failed to confirm payment.")
+      if (err?.response?.status === 409) {
+        finishKhqrPayment()
+      } else {
+        setKhqrError(err?.response?.data?.message || "Failed to confirm payment.")
+      }
     } finally {
       setKhqrConfirming(false)
     }

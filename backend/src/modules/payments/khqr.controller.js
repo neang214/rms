@@ -1,25 +1,9 @@
-import crypto from "crypto";
 import { BakongKHQR, khqrData, IndividualInfo } from "bakong-khqr";
 import prisma from "../../utils/db.js";
 import { getIO } from "../../sockets/index.js";
 
 const KHR_RATE = 4100;
-const DEFAULT_ABA_P2P_TAG = "40600006abaP2P011237977D9FDA2D020960057996403095005369110404Dual";
-
-function computeCRC16(str) {
-  let crc = 0xffff;
-  for (let i = 0; i < str.length; i++) {
-    crc ^= str.charCodeAt(i) << 8;
-    for (let j = 0; j < 8; j++) {
-      if ((crc & 0x8000) !== 0) {
-        crc = ((crc << 1) ^ 0x1021) & 0xffff;
-      } else {
-        crc = (crc << 1) & 0xffff;
-      }
-    }
-  }
-  return crc.toString(16).toUpperCase().padStart(4, "0");
-}
+const md5CheckCache = new Map(); // md5 -> { ts, res }
 
 export const generateKHQR = async (req, res) => {
   const { order_id, currency = "USD" } = req.body;
@@ -53,9 +37,6 @@ export const generateKHQR = async (req, res) => {
       ? parseFloat(totalUSD.toFixed(2))
       : Math.round(totalUSD * KHR_RATE);
 
-    
-    
-    
     const rawTarget = (
       process.env[isusd ? "KHQR_BAKONG_ID_USD" : "KHQR_BAKONG_ID_KHR"] ||
       (isusd ? "500536911" : "600579964")
@@ -81,6 +62,7 @@ export const generateKHQR = async (req, res) => {
     const optionalData = {
       currency: isusd ? khqrData.currency.usd : khqrData.currency.khr,
       amount,
+      billNumber: String(order_id).padStart(4, "0"),
       expirationTimestamp: Date.now() + 10 * 60 * 1000,
       ...(accountNumber
         ? {
@@ -105,22 +87,11 @@ export const generateKHQR = async (req, res) => {
     if (result.status.code !== 0)
       return res.status(500).json({ message: "Failed to generate KHQR", detail: result.status.message });
 
-    let finalQr = result.data.qr;
-    let finalMd5 = result.data.md5;
-
-    // Inject ABA P2P dual-currency routing tag (Tag 40) extracted from the account's native ABA KHQR
-    const abaP2PTag = (process.env.KHQR_ABA_P2P_TAG ?? DEFAULT_ABA_P2P_TAG).trim();
-    if (bakongId === "abaakhppxxx@abaa" && abaP2PTag && finalQr.includes("52045999")) {
-      const qrWithoutCrcValue = finalQr.slice(0, -4).replace("52045999", `${abaP2PTag}52045999`);
-      finalQr = qrWithoutCrcValue + computeCRC16(qrWithoutCrcValue);
-      finalMd5 = crypto.createHash("md5").update(finalQr).digest("hex");
-    }
-
-    console.log(`[KHQR] result: code=${result.status.code} md5=${finalMd5} qr=${finalQr}`);
+    console.log(`[KHQR] result: code=${result.status.code} md5=${result.data.md5} qr=${result.data.qr}`);
 
     res.json({
-      qr: finalQr,
-      md5: finalMd5,
+      qr: result.data.qr,
+      md5: result.data.md5,
       amount,
       currency: currency.toUpperCase(),
       order_id: parseInt(order_id),
@@ -139,15 +110,36 @@ export const checkKHQR = async (req, res) => {
   if (!md5 || !order_id)
     return res.status(400).json({ message: "md5 and order_id are required" });
 
-  const token = process.env.BAKONG_TOKEN;
-  if (!token)
-    return res.json({ paid: false, reason: "BAKONG_TOKEN not configured — use manual confirm" });
-
   const parsedOrderId = parseInt(order_id);
 
   try {
+    // Check if the order is already marked Paid in DB before calling Bakong API
+    const existingOrder = await prisma.order.findUnique({
+      where: { order_id: parsedOrderId },
+      include: {
+        payments: { where: { status: "Completed" } },
+      },
+    });
+
+    if (!existingOrder) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (existingOrder.payments.length > 0 || existingOrder.status === "Paid") {
+      return res.json({ paid: true, already_processed: true, order_id: parsedOrderId });
+    }
+
+    const token = process.env.BAKONG_TOKEN;
+    if (!token)
+      return res.json({ paid: false, reason: "BAKONG_TOKEN not configured — use manual confirm" });
+
     const bakongRes = await checkBakongMD5(md5, token);
-    if (!bakongRes.paid) return res.json({ paid: false });
+    if (!bakongRes.paid) {
+      return res.json({
+        paid: false,
+        ...(bakongRes.rateLimited ? { rate_limited: true, reason: bakongRes.reason } : {}),
+      });
+    }
 
     let khqrMethod = await prisma.paymentMethod.findFirst({ where: { method_name: "KHQR" } });
     if (!khqrMethod)
@@ -200,7 +192,7 @@ export const checkKHQR = async (req, res) => {
     });
 
     if (result.already_processed) {
-      return res.json({ paid: true, already_processed: true });
+      return res.json({ paid: true, already_processed: true, order_id: parsedOrderId });
     }
 
     const io = getIO();
@@ -220,13 +212,42 @@ export const checkKHQR = async (req, res) => {
   } catch (error) {
     if (error.statusCode === 404) return res.status(404).json({ message: "Order not found" });
     if (error.code === "P2002") // duplicate external_ref
-      return res.json({ paid: true, already_processed: true });
+      return res.json({ paid: true, already_processed: true, order_id: parsedOrderId });
     console.error("[KHQR] checkKHQR error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-async function checkBakongMD5(md5, token) {
+async function checkBakongMD5(md5, rawTokens) {
+  const cached = md5CheckCache.get(md5);
+  if (cached && Date.now() - cached.ts < 4000) {
+    return cached.res;
+  }
+
+  const tokens = String(rawTokens)
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  let lastResult = { paid: false };
+  for (const token of tokens) {
+    const res = await callBakongCheckMD5(md5, token);
+    lastResult = res;
+    if (res.paid) {
+      md5CheckCache.set(md5, { ts: Date.now(), res });
+      return res;
+    }
+    // If this token has not hit daily rate limit (errorCode 17), no need to try fallback token
+    if (!res.rateLimited) {
+      break;
+    }
+  }
+
+  md5CheckCache.set(md5, { ts: Date.now(), res: lastResult });
+  return lastResult;
+}
+
+async function callBakongCheckMD5(md5, token) {
   const { default: https } = await import("https");
   return new Promise((resolve) => {
     const body = JSON.stringify({ md5 });
@@ -245,8 +266,22 @@ async function checkBakongMD5(md5, token) {
       let data = "";
       response.on("data", (chunk) => { data += chunk; });
       response.on("end", () => {
-        try { resolve({ paid: JSON.parse(data).responseCode === 0 }); }
-        catch { resolve({ paid: false }); }
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.responseCode === 0) {
+            console.log(`[KHQR] checkBakongMD5 PAID md5=${md5}`);
+            resolve({ paid: true, data: parsed.data });
+          } else {
+            if (parsed.errorCode === 17) {
+              console.warn(`[KHQR] Bakong API daily limit (100/day) reached: ${parsed.responseMessage}`);
+              resolve({ paid: false, rateLimited: true, reason: parsed.responseMessage });
+            } else {
+              resolve({ paid: false, reason: parsed.responseMessage });
+            }
+          }
+        } catch {
+          resolve({ paid: false });
+        }
       });
     });
     req.on("error", () => resolve({ paid: false }));

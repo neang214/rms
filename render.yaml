@@ -29,8 +29,6 @@ services:
         value: NEANG NEN
       - key: KHQR_MERCHANT_CITY
         value: Phnom Penh
-      - key: KHQR_ABA_P2P_TAG
-        value: 40600006abaP2P011237977D9FDA2D020960057996403095005369110404Dual
       - key: BAKONG_TOKEN
         sync: false
 
