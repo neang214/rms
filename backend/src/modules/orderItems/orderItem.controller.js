@@ -205,12 +205,19 @@ export const updateItemStatus = async (req, res) => {
       const allReady = allItems.every((item) => item.status === "Ready");
 
       if (allReady) {
-        const updatedOrder = await prisma.order.update({
+        const currentOrder = await prisma.order.findUnique({
           where: { order_id: orderItem.order_id },
-          data: { status: "Served" },
+          select: { status: true, table_id: true },
         });
-        io.to("role:cashier").to("role:admin").emit("order:status_changed", updatedOrder);
-        io.to(`table:${updatedOrder.table_id}`).emit("order:status_changed", updatedOrder);
+
+        if (currentOrder && currentOrder.status !== "Paid") {
+          const updatedOrder = await prisma.order.update({
+            where: { order_id: orderItem.order_id },
+            data: { status: "Served" },
+          });
+          io.to("role:cashier").to("role:admin").emit("order:status_changed", updatedOrder);
+          io.to(`table:${updatedOrder.table_id}`).emit("order:status_changed", updatedOrder);
+        }
       }
     }
 
@@ -302,13 +309,20 @@ export const deleteItem = async (req, res) => {
     });
 
     if (remainingItems.length > 0 && remainingItems.every((item) => item.status === "Ready")) {
-      const updatedOrder = await prisma.order.update({
+      const currentOrder = await prisma.order.findUnique({
         where: { order_id: deleted.order_id },
-        data: { status: "Served" },
+        select: { status: true, table_id: true },
       });
-      io.to("role:cashier").to("role:admin").emit("order:status_changed", updatedOrder);
-      if (updatedOrder.table_id) {
-        io.to(`table:${updatedOrder.table_id}`).emit("order:status_changed", updatedOrder);
+
+      if (currentOrder && currentOrder.status !== "Paid") {
+        const updatedOrder = await prisma.order.update({
+          where: { order_id: deleted.order_id },
+          data: { status: "Served" },
+        });
+        io.to("role:cashier").to("role:admin").emit("order:status_changed", updatedOrder);
+        if (updatedOrder.table_id) {
+          io.to(`table:${updatedOrder.table_id}`).emit("order:status_changed", updatedOrder);
+        }
       }
     }
 

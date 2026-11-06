@@ -58,7 +58,7 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     closeTimerRef.current = setTimeout(() => {
       onCloseRef.current?.()
-    }, 800)
+    }, 4000)
   }, [stopKhqrPolling])
 
   useEffect(() => {
@@ -74,6 +74,12 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
     setKhqrPaid(false)
     setKhqrError(null)
   }, [order?.order_id])
+
+  useEffect(() => {
+    if (!payMethodId && paymentMethods.length > 0) {
+      setPayMethodId(paymentMethods.find(m => !/khqr|aba|bakong/i.test(m.method_name))?.method_id || null)
+    }
+  }, [paymentMethods, payMethodId])
 
   useEffect(() => {
     return () => {
@@ -112,6 +118,7 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
   // convert whatever the cashier typed into USD so change math is consistent
   const cashUSD = cashCur === "KHR" ? cashInput / KHR_RATE : cashInput
   const change = cashUSD - total          
+  const isShort = change < -0.005
   const totalInCur = cashCur === "KHR" ? Math.round(total * KHR_RATE) : total
   const fmt = (usd) => cashCur === "KHR"
     ? `៛${Math.round(usd * KHR_RATE).toLocaleString()}`
@@ -191,6 +198,10 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
       setErrorMsg("Please select a payment method.")
       return
     }
+    if (isCash && cashInput > 0 && isShort) {
+      setErrorMsg("Cash received is less than the total amount.")
+      return
+    }
     setPaying(true)
     setErrorMsg("")
     try {
@@ -215,6 +226,7 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
   // success screen. Uses the KHQR method if it exists, else the first one.
   // Once BAKONG_TOKEN is configured, auto-polling replaces this.
   const confirmKHQRPay = async () => {
+    stopKhqrPolling()
     setKhqrConfirming(true)
     setKhqrError(null)
     try {
@@ -223,10 +235,12 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
       else await createPayment({ order_id: order.order_id, method_name: "KHQR" })
       finishKhqrPayment()
     } catch (err) {
-      if (err?.response?.status === 409) {
+      const status = err?.response?.status
+      const msg = err?.response?.data?.message || ""
+      if (status === 409 || status === 400 || /already paid/i.test(msg)) {
         finishKhqrPayment()
       } else {
-        setKhqrError(err?.response?.data?.message || "Failed to confirm payment.")
+        setKhqrError(msg || "Failed to confirm payment.")
       }
     } finally {
       setKhqrConfirming(false)
@@ -359,16 +373,16 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
                     ))}
                   </div>
 
-                  {}
+                  {/* Change or Shortage */}
                   <div className={cn("rounded-xl px-3 py-2.5 flex items-center justify-between",
-                    cashInput === 0 ? "bg-[var(--color-primary-muted)]/40" : change < 0 ? "bg-[var(--color-danger-muted)]" : "bg-[var(--color-primary-muted)]")}>
+                    cashInput === 0 ? "bg-[var(--color-primary-muted)]/40" : isShort ? "bg-[var(--color-danger-muted)]" : "bg-[var(--color-primary-muted)]")}>
                     <span className="text-sm font-medium text-[var(--color-text-secondary)]">{t("pay.change")}</span>
                     {cashInput === 0 ? (
                       <span className="text-sm text-[var(--color-muted)]">—</span>
-                    ) : change < 0 ? (
+                    ) : isShort ? (
                       <span className="text-sm font-bold text-[var(--color-danger)]">{t("pay.short")} {fmt(Math.abs(change))}</span>
                     ) : (
-                      <span className="text-lg font-bold text-[var(--color-primary)]">{fmt(change)}</span>
+                      <span className="text-lg font-bold text-[var(--color-primary)]">{fmt(Math.max(0, change))}</span>
                     )}
                   </div>
                 </div>
@@ -443,11 +457,11 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
             {payMode === "normal" ? (
               <div className="flex gap-2">
                 <button onClick={handleClose} disabled={paying} className="flex-1 py-3 rounded-2xl border border-[var(--color-border)] text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-muted)] transition-colors disabled:opacity-60 min-h-[48px] cursor-pointer">{t("common.cancel")}</button>
-                <button onClick={() => confirmPay(false)} disabled={paying} className="flex-[1.2] py-3 rounded-2xl border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-muted)] text-sm font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 min-h-[48px] cursor-pointer">
+                <button onClick={() => confirmPay(false)} disabled={paying || (isCash && cashInput > 0 && isShort)} className="flex-[1.2] py-3 rounded-2xl border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-primary-muted)] text-sm font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 min-h-[48px] cursor-pointer">
                   {paying ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                   {paying ? t("pay.processing") : `${t("pay.charge")} $${total.toFixed(2)}`}
                 </button>
-                <button onClick={() => confirmPay(true)} disabled={paying} className="flex-[1.3] py-3 rounded-2xl bg-[var(--color-primary)] text-white text-sm font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 min-h-[48px] cursor-pointer">
+                <button onClick={() => confirmPay(true)} disabled={paying || (isCash && cashInput > 0 && isShort)} className="flex-[1.3] py-3 rounded-2xl bg-[var(--color-primary)] text-white text-sm font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 min-h-[48px] cursor-pointer">
                   <Printer size={15} /> Pay &amp; Print
                 </button>
               </div>
