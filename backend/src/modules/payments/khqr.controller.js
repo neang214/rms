@@ -106,12 +106,16 @@ export const generateKHQR = async (req, res) => {
     let finalQr = result.data.qr;
     let finalMd5 = result.data.md5;
 
-    // Inject ABA P2P dual-currency routing tag (Tag 40) extracted from the account's native ABA KHQR
-    const abaP2PTag = (process.env.KHQR_ABA_P2P_TAG ?? DEFAULT_ABA_P2P_TAG).trim();
-    if (bakongId === "abaakhppxxx@abaa" && abaP2PTag && finalQr.includes("52045999")) {
-      const qrWithoutCrcValue = finalQr.slice(0, -4).replace("52045999", `${abaP2PTag}52045999`);
-      finalQr = qrWithoutCrcValue + computeCRC16(qrWithoutCrcValue);
-      finalMd5 = crypto.createHash("md5").update(finalQr).digest("hex");
+    // Note: Injecting Tag 40 (abaP2P) makes ABA Mobile route transfers as internal
+    // ABA-to-ABA P2P, which bypasses NBC Bakong and cannot be tracked via check_transaction_by_md5.
+    // Only inject Tag 40 if explicitly opted in via KHQR_USE_ABA_P2P=true.
+    if (process.env.KHQR_USE_ABA_P2P === "true") {
+      const abaP2PTag = (process.env.KHQR_ABA_P2P_TAG ?? DEFAULT_ABA_P2P_TAG).trim();
+      if (bakongId === "abaakhppxxx@abaa" && abaP2PTag && finalQr.includes("52045999")) {
+        const qrWithoutCrcValue = finalQr.slice(0, -4).replace("52045999", `${abaP2PTag}52045999`);
+        finalQr = qrWithoutCrcValue + computeCRC16(qrWithoutCrcValue);
+        finalMd5 = crypto.createHash("md5").update(finalQr).digest("hex");
+      }
     }
 
     console.log(`[KHQR] result: code=${result.status.code} md5=${finalMd5} qr=${finalQr}`);
@@ -247,7 +251,7 @@ export const checkKHQR = async (req, res) => {
 
 async function checkBakongMD5(md5, rawTokens) {
   const cached = md5CheckCache.get(md5);
-  if (cached && Date.now() - cached.ts < 4000) {
+  if (cached && Date.now() - cached.ts < 8000) {
     return cached.res;
   }
 

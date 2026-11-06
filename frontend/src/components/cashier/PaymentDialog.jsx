@@ -27,6 +27,7 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
   const [khqrConfirming, setKhqrConfirming] = useState(false)
   const [khqrCountdown, setKhqrCountdown] = useState(600)
   const khqrPollRef = useRef(null)
+  const khqrDelayRef = useRef(null)
   const khqrCountdownRef = useRef(null)
   const closeTimerRef = useRef(null)
   const handledPaidRef = useRef(false)
@@ -39,8 +40,10 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
   }, [onClose, onPaid])
 
   const stopKhqrPolling = useCallback(() => {
+    if (khqrDelayRef.current) clearTimeout(khqrDelayRef.current)
     if (khqrPollRef.current) clearInterval(khqrPollRef.current)
     if (khqrCountdownRef.current) clearInterval(khqrCountdownRef.current)
+    khqrDelayRef.current = null
     khqrPollRef.current = null
     khqrCountdownRef.current = null
   }, [])
@@ -135,19 +138,35 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
       })
       setKhqrData(res.data)
 
+      let attempts = 0
+      const MAX_AUTO_CHECKS = 15 // Max 15 Bakong API calls per QR to protect the 100/day quota
+
       const pollCheck = async () => {
-        if (handledPaidRef.current) return
+        if (handledPaidRef.current || document.hidden) return
+        attempts += 1
+        if (attempts > MAX_AUTO_CHECKS) {
+          if (khqrPollRef.current) clearInterval(khqrPollRef.current)
+          khqrPollRef.current = null
+          return
+        }
         try {
           const check = await api.get(
             `/payments/khqr/check/${res.data.md5}?order_id=${order.order_id}&currency=${khqrCurrency}`
           )
           if (check.data?.paid) {
             finishKhqrPayment()
+          } else if (check.data?.rate_limited) {
+            stopKhqrPolling()
+            setKhqrError(`Bakong API: ${check.data.reason || "Daily request limit (100/day) exceeded."}`)
           }
         } catch {}
       }
 
-      khqrPollRef.current = setInterval(pollCheck, 4000)
+      // Wait 10s before first check (time for customer to scan & enter PIN), then check every 8s
+      khqrDelayRef.current = setTimeout(() => {
+        pollCheck()
+        khqrPollRef.current = setInterval(pollCheck, 8000)
+      }, 10000)
 
       khqrCountdownRef.current = setInterval(() => {
         setKhqrCountdown(prev => {
