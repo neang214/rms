@@ -138,7 +138,8 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
     }
   }
 
-  const generateKHQR = async (targetCur = khqrCurrency) => {
+  const generateKHQR = async (targetCur) => {
+    const cur = typeof targetCur === "string" ? targetCur : khqrCurrency
     setKhqrLoading(true)
     setKhqrError(null)
     setKhqrData(null)
@@ -149,7 +150,7 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
     try {
       const res = await api.post("/payments/khqr/generate", {
         order_id: order.order_id,
-        currency: targetCur,
+        currency: cur,
       })
       setKhqrData(res.data)
 
@@ -166,7 +167,7 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
         }
         try {
           const check = await api.get(
-            `/payments/khqr/check/${res.data.md5}?order_id=${order.order_id}&currency=${targetCur}`
+            `/payments/khqr/check/${res.data.md5}?order_id=${order.order_id}&currency=${cur}`
           )
           if (check.data?.paid) {
             finishKhqrPayment()
@@ -490,7 +491,7 @@ export default function PaymentDialog({ order, paymentMethods = [], onClose, onP
             ) : !khqrData ? (
               <div className="flex gap-2">
                 <button onClick={handleClose} className="flex-1 py-3 rounded-2xl border border-[var(--color-border)] text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-muted)] transition-colors min-h-[48px]">{t("common.cancel")}</button>
-                <button onClick={generateKHQR} disabled={khqrLoading} className="flex-[2] py-3 rounded-2xl bg-[var(--color-primary)] text-white text-sm font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-2 disabled:opacity-60 min-h-[48px]">
+                <button onClick={() => generateKHQR(khqrCurrency)} disabled={khqrLoading} className="flex-[2] py-3 rounded-2xl bg-[var(--color-primary)] text-white text-sm font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-2 disabled:opacity-60 min-h-[48px]">
                   {khqrLoading ? <Loader2 size={16} className="animate-spin" /> : <QrCode size={16} />}
                   {khqrLoading ? t("pay.generating") : t("pay.generateQr")}
                 </button>
