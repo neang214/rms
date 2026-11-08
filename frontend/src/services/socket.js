@@ -1,7 +1,14 @@
 import { io } from "socket.io-client"
 import { useEffect, useRef, useState } from "react"
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || ""
+const PROD_BACKEND_ORIGIN = "https://zoom-rms-backend.onrender.com"
+const rawSocketUrl = (import.meta.env.VITE_SOCKET_URL || "").trim()
+const SOCKET_URL =
+  rawSocketUrl && !rawSocketUrl.includes(".fly.dev")
+    ? rawSocketUrl
+    : import.meta.env.PROD
+      ? PROD_BACKEND_ORIGIN
+      : ""
 
 let socket = null
 

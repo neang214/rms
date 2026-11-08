@@ -1,9 +1,18 @@
 import axios from "axios"
 
 export const GUEST_SESSION_KEY = "zoom_guest_session"
+export const PROD_BACKEND_ORIGIN = "https://zoom-rms-backend.onrender.com"
+
+const rawApiUrl = (import.meta.env.VITE_API_URL || "").trim()
+const resolvedApiBaseUrl =
+  rawApiUrl && !rawApiUrl.includes(".fly.dev")
+    ? rawApiUrl
+    : import.meta.env.PROD
+      ? `${PROD_BACKEND_ORIGIN}/api`
+      : "/api"
 
 const clientApi = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "/api",
+  baseURL: resolvedApiBaseUrl,
   withCredentials: true,
   headers: { "Content-Type": "application/json" },
 })

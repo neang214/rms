@@ -18,7 +18,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        sync: false
+        value: https://zoom-rms.vercel.app
       - key: BAKONG_ACCOUNT_ID
         value: abaakhppxxx@abaa
       - key: KHQR_BAKONG_ID_USD
@@ -47,7 +47,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        sync: false
+        value: https://zoom-rms-backend.onrender.com/api
       - key: VITE_SOCKET_URL
-        sync: false
+        value: https://zoom-rms-backend.onrender.com
 

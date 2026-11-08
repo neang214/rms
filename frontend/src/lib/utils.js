@@ -2,8 +2,15 @@ import { clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 export function cn(...inputs) { return twMerge(clsx(inputs)) }
 
-const rawApiUrl = import.meta.env.VITE_API_URL || ""
-const cleanApiUrl = rawApiUrl.replace(/\/api\/?$/, "")
+const PROD_BACKEND_ORIGIN = "https://zoom-rms-backend.onrender.com"
+const rawApiUrl = (import.meta.env.VITE_API_URL || "").trim()
+const effectiveApiUrl =
+  rawApiUrl && !rawApiUrl.includes(".fly.dev")
+    ? rawApiUrl
+    : import.meta.env.PROD
+      ? PROD_BACKEND_ORIGIN
+      : ""
+const cleanApiUrl = effectiveApiUrl.replace(/\/api\/?$/, "")
 
 // When running locally or when VITE_API_URL is unset, return empty string so images
 // use relative URLs (e.g. /uploads/...) and are fetched through Vite's dev proxy.
