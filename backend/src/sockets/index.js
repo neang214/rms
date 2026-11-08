@@ -1,19 +1,20 @@
 import { Server } from "socket.io";
 
 const allowedOrigins = [
+  "https://zoom-rms.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
-  "https://zoom-rms.vercel.app",
-  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(",").map(s => s.trim()) : []),
-  ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(",").map(s => s.trim()) : [])
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(",").map(s => s.trim().replace(/\/$/, "")) : []),
+  ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(",").map(s => s.trim().replace(/\/$/, "")) : [])
 ];
 
 export const isAllowedOrigin = (origin) => {
   if (!origin) return true;
+  const cleanOrigin = origin.replace(/\/$/, "");
   if (
-    allowedOrigins.includes(origin) ||
-    /\.vercel\.app$/.test(origin) ||
-    /\.onrender\.com$/.test(origin)
+    allowedOrigins.includes(cleanOrigin) ||
+    /\.vercel\.app$/.test(cleanOrigin) ||
+    /\.onrender\.com$/.test(cleanOrigin)
   ) return true;
   if (process.env.NODE_ENV !== "production") {
     if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin)) {

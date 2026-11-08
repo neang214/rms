@@ -35,14 +35,24 @@ app.use(cookieParser());
 
 export { isAllowedOrigin };
 
+const allowedOrigins = [
+  "https://zoom-rms.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(",").map(s => s.trim().replace(/\/$/, "")) : []),
+  ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(",").map(s => s.trim().replace(/\/$/, "")) : []),
+];
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (isAllowedOrigin(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || isAllowedOrigin(origin)) {
       return callback(null, true);
     }
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-guest-session"],
 }));
 
 app.use("/uploads", express.static(uploadsDir));
@@ -53,13 +63,6 @@ app.get("/", (req, res) => {
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
-});
-
-app.get("/api/orders", (req, res, next) => {
-  if (!req.headers.origin && !req.headers.referer && !req.headers.authorization && !req.headers.cookie) {
-    return res.status(200).json({ status: "ok" });
-  }
-  next();
 });
 
 app.use("/api/auth",            authRoutes);
