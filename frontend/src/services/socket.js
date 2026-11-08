@@ -1,7 +1,7 @@
 import { io } from "socket.io-client"
 import { useEffect, useRef, useState } from "react"
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || ""
+const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL || "").replace(/\/$/, "")
 
 let socket = null
 

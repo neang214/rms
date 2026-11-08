@@ -3,7 +3,7 @@ import axios from "axios"
 export const GUEST_SESSION_KEY = "zoom_guest_session"
 
 const clientApi = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "/api",
+  baseURL: (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, ""),
   withCredentials: true,
   headers: { "Content-Type": "application/json" },
 })
