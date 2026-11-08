@@ -95,7 +95,12 @@ function StaffApp() {
   }
 
   if (!user) {
-    return <Login />
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    )
   }
 
   const role = user.role || "admin"
@@ -104,6 +109,7 @@ function StaffApp() {
     <Layout>
       <RoleRedirector />
       <Routes>
+        <Route path="/login" element={<Navigate to={roleHome[role] || "/admin"} replace />} />
 
         { }
         <Route path="/admin" element={<ProtectedRoute role={role} allowedRoles={["admin"]}><Dashboard /></ProtectedRoute>} />

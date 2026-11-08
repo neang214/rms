@@ -124,6 +124,7 @@ export default function Layout({ children }) {
 
   const handleLogout = async () => {
     await logout()
+    navigate("/login", { replace: true })
   }
 
   return (

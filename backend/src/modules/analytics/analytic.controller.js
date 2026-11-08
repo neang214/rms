@@ -122,7 +122,8 @@ export const peakHour = async (req, res) => {
         CAST(COUNT(*) AS INT) as total_orders
       FROM orders
       GROUP BY 1
-      ORDER BY hour ASC
+      ORDER BY total_orders DESC, hour ASC
+      LIMIT 5
     `;
     res.json(peakHours);
   } catch (error) {

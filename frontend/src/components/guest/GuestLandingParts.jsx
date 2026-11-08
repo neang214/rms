@@ -52,7 +52,7 @@ export function LandingContent({ onScan, lastToken, error, navigate }) {
         <p className="text-xs text-[var(--color-muted)] flex items-center justify-center gap-1.5">
           <UtensilsCrossed size={12} /> Powered by Zoom Garden Café & Wine
         </p>
-        <a href="/admin" className="text-[11px] text-[var(--color-muted)] underline underline-offset-2 hover:text-[var(--color-primary)]">
+        <a href="/login" className="text-[11px] text-[var(--color-muted)] underline underline-offset-2 hover:text-[var(--color-primary)]">
           {t("guest.staffLogin")}
         </a>
       </div>
