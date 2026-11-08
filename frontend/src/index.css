@@ -36,8 +36,20 @@
   --color-plum: #7c3aed;
   --color-plum-muted: #f3e8ff;
 
-  --font-sans: 'Roboto', sans-serif;
-  --font-display: 'Roboto', sans-serif;
+  --font-sans: 'Roboto', 'Kantumruy Pro', sans-serif;
+  --font-display: 'Roboto', 'Kantumruy Pro', sans-serif;
+
+  /* Larger, more readable typography scale across the frontend */
+  --text-xs: 0.85rem;
+  --text-xs--line-height: 1.3rem;
+  --text-sm: 0.95rem;
+  --text-sm--line-height: 1.45rem;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.6rem;
+  --text-lg: 1.2rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.35rem;
+  --text-xl--line-height: 1.85rem;
 }
 
 :root { color-scheme: light; }
@@ -90,10 +102,32 @@
   border-color: var(--color-border);
 }
 
+html {
+  font-size: 17px;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
+}
+
+/* Scale up micro arbitrary text classes for better readability */
+.text-\[9px\],
+.text-\[10px\] {
+  font-size: 0.78rem !important;
+  line-height: 1.15rem !important;
+}
+
+.text-\[11px\],
+.text-\[12px\] {
+  font-size: 0.85rem !important;
+  line-height: 1.25rem !important;
+}
+
+.text-\[13px\] {
+  font-size: 0.92rem !important;
+  line-height: 1.35rem !important;
 }
 
 body {

@@ -3,6 +3,30 @@ import { useSocketRole, useSocketEvent } from "../services/socket"
 import { useOrderItemStore } from "../context/orderItemContext"
 
 let sharedAudioCtx = null
+let lastSoundPlayedAt = 0
+const SOUND_COOLDOWN_MS = 3500
+const ORDER_BATCH_WINDOW_MS = 8000
+const recentOrderRingMap = new Map()
+
+function shouldRingForOrder(orderId, eventGroup = "new") {
+  const now = Date.now()
+  // Clean up expired entries
+  for (const [k, ts] of recentOrderRingMap.entries()) {
+    if (now - ts > ORDER_BATCH_WINDOW_MS) {
+      recentOrderRingMap.delete(k)
+    }
+  }
+  if (!orderId) return true
+  const key = `${eventGroup}:${orderId}`
+  const prev = recentOrderRingMap.get(key)
+  // Always refresh the rolling window timestamp so sequential items in the same order stay grouped
+  recentOrderRingMap.set(key, now)
+  if (prev && now - prev < ORDER_BATCH_WINDOW_MS) {
+    return false
+  }
+  return true
+}
+
 function getAudioContext() {
   if (!sharedAudioCtx) {
     const Ctx = window.AudioContext || window.webkitAudioContext
@@ -21,17 +45,23 @@ export function unlockAudioNow() {
     const ctx = getAudioContext()
     if (!ctx) return
     if (ctx.state === "suspended") {
-      ctx.resume().then(() => playAlertSound()).catch(() => {})
+      ctx.resume().then(() => playAlertSound({ force: true })).catch(() => {})
     } else {
-      playAlertSound()
+      playAlertSound({ force: true })
     }
   } catch (err) {
     console.warn("Could not unlock audio:", err)
   }
 }
 
-export function playAlertSound() {
+export function playAlertSound({ force = false } = {}) {
   try {
+    const nowMs = Date.now()
+    if (!force && nowMs - lastSoundPlayedAt < SOUND_COOLDOWN_MS) {
+      return
+    }
+    lastSoundPlayedAt = nowMs
+
     const ctx = getAudioContext()
     if (!ctx) return
 
@@ -52,10 +82,8 @@ export function playAlertSound() {
         } catch {}
       }
       const now = ctx.currentTime + 0.02
-      playTone(880, now, 0.2)
-      playTone(1175, now + 0.22, 0.26)
-      playTone(880, now + 0.52, 0.2)
-      playTone(1175, now + 0.74, 0.26)
+      playTone(880, now, 0.22)
+      playTone(1175, now + 0.24, 0.32)
     }
 
     if (ctx.state === "suspended") {
@@ -103,28 +131,35 @@ export function useStaffNotifications(role) {
     setTimeout(() => setBellRinging(false), 2000)
   }, [])
 
-  useSocketEvent("order:new", () => {
+  const ringForOrder = useCallback((orderId, eventGroup = "new") => {
+    if (!shouldRingForOrder(orderId, eventGroup)) return
+    ring()
+  }, [ring])
+
+  useSocketEvent("order:new", (order) => {
+    const orderId = order?.order_id
     if (role === "cashier" || role === "admin") {
-      ring()
+      ringForOrder(orderId, "new")
     }
     if (role === "kitchen") {
       fetchKitchenQueue()
-      ring()
+      ringForOrder(orderId, "new")
     }
     if (role === "barista") {
       fetchBaristaQueue()
-      ring()
+      ringForOrder(orderId, "new")
     }
   })
 
-  useSocketEvent("order:confirmed", () => {
+  useSocketEvent("order:confirmed", (order) => {
+    const orderId = order?.order_id
     if (role === "kitchen") {
       fetchKitchenQueue()
-      ring()
+      ringForOrder(orderId, "new")
     }
     if (role === "barista") {
       fetchBaristaQueue()
-      ring()
+      ringForOrder(orderId, "new")
     }
   })
 
@@ -133,17 +168,18 @@ export function useStaffNotifications(role) {
     if (role === "barista") fetchBaristaQueue()
   })
 
-  useSocketEvent("order_item:new", () => {
+  useSocketEvent("order_item:new", (item) => {
+    const orderId = item?.order_id ?? item?.order?.order_id
     if (role === "cashier" || role === "admin") {
-      ring()
+      ringForOrder(orderId, "new")
     }
     if (role === "kitchen") {
       fetchKitchenQueue()
-      ring()
+      ringForOrder(orderId, "new")
     }
     if (role === "barista") {
       fetchBaristaQueue()
-      ring()
+      ringForOrder(orderId, "new")
     }
   })
 
@@ -151,13 +187,14 @@ export function useStaffNotifications(role) {
     if (role === "kitchen") fetchKitchenQueue()
     if (role === "barista") fetchBaristaQueue()
     if (item?.status === "Ready" && (role === "cashier" || role === "admin")) {
-      ring()
+      const orderId = item?.order_id ?? item?.order?.order_id
+      ringForOrder(orderId, "ready")
     }
   })
 
   useSocketEvent("order:status_changed", (order) => {
     if (order?.status === "Served" && (role === "cashier" || role === "admin")) {
-      ring()
+      ringForOrder(order?.order_id, "ready")
     }
   })
 
