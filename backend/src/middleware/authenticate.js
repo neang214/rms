@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "../utils/generateToken.js";
 
 export const authenticate = (req, res, next) => {
   const token = req.cookies?.token || req.headers.authorization?.replace(/^Bearer\s+/, "");
@@ -8,7 +9,7 @@ export const authenticate = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch {
@@ -23,7 +24,7 @@ export const authenticateOptional = (req, res, next) => {
   if (!token) return next();
 
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = jwt.verify(token, JWT_SECRET);
   } catch {
     // Ignore invalid/expired token on optional check; downstream guard handles it
   }

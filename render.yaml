@@ -7,7 +7,7 @@ services:
     rootDir: backend
     buildCommand: npm install && npx prisma generate
     startCommand: npm start
-    healthCheckPath: /api/orders
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
