@@ -32,15 +32,15 @@ export default defineConfig({
             // talks to this same origin for everything, and Vite quietly
             // relays it to the backend behind the scenes.
             "/api": {
-                target: "http://localhost:8080",
+                target: "https://zoom-rms-backend.onrender.com",
                 changeOrigin: true,
             },
             "/uploads": {
-                target: "http://localhost:8080",
+                target: "https://zoom-rms-backend.onrender.com",
                 changeOrigin: true,
             },
             "/socket.io": {
-                target: "http://localhost:8080",
+                target: "https://zoom-rms-backend.onrender.com",
                 ws: true, // required for Socket.IO's websocket upgrade
                 changeOrigin: true,
             },
